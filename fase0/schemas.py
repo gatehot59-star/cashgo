@@ -7,8 +7,15 @@ Estos esquemas son el guardrail estructural de la Regla 6 del ADR-CG-002
   El texto de un anuncio ajeno entra al contexto del modelo todos los dias. Si
   ese texto contiene una inyeccion de prompt, lo PEOR que puede lograr es que el
   modelo devuelva un JSON que no valide contra `AnalisisAnuncio`, porque todos
-  los campos de clasificacion son Literal cerrados y los de texto libre estan
-  acotados en longitud. Un JSON invalido se descarta y se registra.
+  los campos de clasificacion son Literal cerrados. Un JSON invalido se descarta
+  y se registra.
+
+  PRECISION AGREGADA POR B5 (auditoria externa, 2026-09-07): el docstring decia
+  antes que los campos de texto libre estaban "acotados en longitud", presentando
+  como guard estructural lo que en realidad es TRUNCAMIENTO. Son cosas distintas:
+  un guard rechaza, el truncamiento degrada en silencio. El truncamiento es la
+  conducta correcta aca (una promesa larga no debe invalidar los otros 39 analisis
+  del lote) y ahora esta declarado como tal, con un test que lo fija.
 
   No hay ningun campo en el que el modelo pueda devolver algo ejecutable, ni una
   URL de destino, ni un id de cuenta, ni un monto. Eso no es casualidad: es el
@@ -44,12 +51,52 @@ MAX_TEXTO_LIBRE = 240
 _ESPACIOS = re.compile(r"\s+")
 # Caracteres de control salvo tab/newline: se van antes de tocar el modelo.
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
-_URL = re.compile(r"\b(?:https?://|www\.)\S+", re.IGNORECASE)
+# B8 (hallazgo del auditor externo, 2026-09-07): la version anterior era
+# r"\b(?:https?://|www\.)\S+" y dejaba pasar `bit.ly/x`, `marca.com/oferta` y
+# cualquier dominio sin protocolo ni `www`. El docstring prometia "URL de
+# terceros" sin calificar, o sea que la promesa era mas amplia que el guard.
+# Esta version cubre tambien dominio+TLD desnudo y los ofuscados `marca[.]com`.
+# NO pretende ser exhaustiva: no hay regex que lo sea. El alcance real esta
+# declarado en el docstring de sin_urls().
+_TLD = (
+    r"com|net|org|io|co|ai|app|shop|store|es|de|fr|it|nl|uk|eu|pt|be|se|dk|pl|ie"
+    r"|gl|ly|me|to|cc|tv|xyz|online|site|link|biz|info"
+)
+_URL = re.compile(
+    r"(?:https?://\S+"                                   # con protocolo
+    r"|www\.\S+"                                         # con www
+    r"|\b[\w-]+(?:\s*\[\s*\.\s*\]\s*|\.)(?:" + _TLD + r")\b(?:/\S*)?)",
+    re.IGNORECASE,
+)
+
+# --- B3 (hallazgo del auditor externo, 2026-09-07) ---
+# Los delimitadores con los que `cognitive.formatear_anuncio` envuelve cada
+# anuncio son literales fijos. Un copy hostil que los contenga puede CERRAR su
+# bloque y ABRIR otro con el ad_id de un competidor legitimo y texto inventado.
+# El esquema cerrado NO lo frena, porque ese ad_id si estaba en la entrada y la
+# clasificacion es valida; la verificacion de cobertura tampoco, por la misma
+# razon. Es contaminacion cruzada DENTRO del lote, y no estaba en el modelo de
+# amenazas: el vector declarado cubria "que el modelo devuelva algo invalido",
+# no "que clasifique mal a un tercero con datos formalmente validos".
+#
+# Se neutraliza en la frontera de ingesta, no en la de formateo, para que el
+# texto guardado en la base ya este limpio y ningun consumidor futuro herede el
+# problema. La secuencia `<<<` es la unica que hay que romper.
+_SECUENCIA_DELIMITADOR = re.compile(r"<{3,}|>{3,}")
 
 
 def normalizar(texto: str) -> str:
-    """Colapsa espacios y saca caracteres de control. Determinista e idempotente."""
-    return _ESPACIOS.sub(" ", _CONTROL.sub(" ", texto)).strip()
+    """
+    Colapsa espacios, saca caracteres de control y neutraliza la secuencia con la
+    que se delimitan los bloques enviados al modelo. Determinista e idempotente.
+
+    La neutralizacion de `<<<` y `>>>` cierra el vector B3 (contaminacion cruzada
+    intra-lote): si la secuencia no puede aparecer en el copy, ningun anuncio
+    puede fabricar un bloque atribuido a otro anunciante.
+    """
+    limpio = _CONTROL.sub(" ", texto)
+    limpio = _SECUENCIA_DELIMITADOR.sub(lambda m: m.group(0)[0] * 2, limpio)
+    return _ESPACIOS.sub(" ", limpio).strip()
 
 
 class AnuncioCrudo(BaseModel):
@@ -117,13 +164,20 @@ class AnuncioCrudo(BaseModel):
 
         Es la misma idea que la Regla 3 del ADR-CG-002: hashear la INTENCION
         (aca, la creatividad) y no el registro que la transporta.
+
+        TAMPOCO INCLUYE `plataformas` (B6, hallazgo del auditor externo 2026-09-07).
+        La version anterior si las incluia, y eso reintroducia el mismo defecto que
+        la fecha en menor magnitud: una creatividad que arranca solo en Facebook y
+        despues se extiende a Instagram cambiaba de hash y volvia a pagar tokens,
+        siendo el mismo hecho de mercado.
+        Decision declarada: la identidad de una creatividad es `page_id` + copy.
+        Las plataformas siguen disponibles en el registro crudo para el informe.
         """
         payload = "\u241f".join([
             self.page_id,
             *self.cuerpos,
             *self.titulos,
             *self.descripciones,
-            ",".join(sorted(self.plataformas)),
         ])
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -140,6 +194,13 @@ def sin_urls(texto: str) -> str:
 
     No reemplaza al escapado de HTML: son dos capas distintas. El escapado impide
     que el texto se ejecute; esto impide que el texto invite a navegar.
+
+    ALCANCE DECLARADO (B8, hallazgo del auditor externo 2026-09-07): cubre URLs con
+    protocolo, con `www`, dominio+TLD desnudo de una lista cerrada de TLDs, y la
+    ofuscacion `marca[.]com`. NO es exhaustivo y no puede serlo: un TLD fuera de la
+    lista, un dominio escrito en palabras o una IP desnuda pasan. El control que si
+    es completo es el escapado de HTML del informe; esta funcion es cosmetica del
+    entregable, no un control de seguridad, y el modelo de amenazas la declara asi.
     """
     return _ESPACIOS.sub(" ", _URL.sub("[enlace]", texto)).strip()
 
@@ -154,13 +215,25 @@ class AnalisisAnuncio(BaseModel):
     hook: Hook
     cta: Cta
     formato: Formato
-    promesa: str = Field(default="", max_length=MAX_TEXTO_LIBRE)
-    publico_sugerido: str = Field(default="", max_length=MAX_TEXTO_LIBRE)
+    # B5 (hallazgo del auditor externo, 2026-09-07): estos dos campos tenian
+    # `max_length=MAX_TEXTO_LIBRE`, y ese constraint era INALCANZABLE: el validador
+    # de abajo corre en modo "before" y trunca a 240 antes de que Pydantic evalue la
+    # longitud. Nunca podia disparar. Es la tercera aparicion del defecto 10 (guard
+    # con rama negativa inalcanzable), y ademas el docstring del modulo vendia
+    # "acotados en longitud" como guard estructural cuando era degradacion silenciosa.
+    #
+    # Decision declarada, no un parche: la conducta correcta ES truncar y no
+    # rechazar, porque una promesa larga no debe invalidar los otros 39 analisis
+    # del lote. Asi que se retira el constraint muerto y el truncamiento queda
+    # documentado como conducta, con un test que lo fija.
+    promesa: str = ""
+    publico_sugerido: str = ""
     confianza: float = Field(ge=0.0, le=1.0)
 
     @field_validator("promesa", "publico_sugerido", mode="before")
     @classmethod
     def _acotar(cls, v: object) -> str:
+        """TRUNCA a MAX_TEXTO_LIBRE. No rechaza. Ver el comentario de arriba."""
         return sin_urls(normalizar(str(v or "")))[:MAX_TEXTO_LIBRE]
 
 

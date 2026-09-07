@@ -55,6 +55,14 @@ BACKOFF_MAX_INTENTOS = 5
 
 # Campos que pedimos. Pedir menos campos es la primera recomendacion de Meta
 # para no comerse el rate limit.
+#
+# LIMITACION PROPIA DECLARADA (10.10, encontrada auditando para la revision 2):
+# ninguno de estos campos informa el FORMATO del anuncio. El prompt instruye a
+# poner "desconocido" si la entrada no lo dice, asi que en produccion `formato`
+# sera "desconocido" casi siempre y la seccion 4 del informe entregable
+# ("Formatos que el mercado sostiene") sera inerte. En el --dry-run no se nota
+# porque el clasificador de fixture deriva el formato de las plataformas, que es
+# justo lo que el prompt prohibe: adivinar.
 CAMPOS_ADS_ARCHIVE: tuple[str, ...] = (
     "id",
     "page_id",
@@ -81,6 +89,19 @@ MODELO_PRO = "deepseek-v4-pro"
 # (scripts/modelo_costo_arq3.py): es el punto donde el prefijo estable se
 # amortiza sobre suficientes anuncios sin que el output se acerque al techo.
 ANUNCIOS_POR_LOTE = 40
+
+# B7 (hallazgo del auditor externo, 2026-09-07): tope explicito de tokens de
+# salida. Un lote de ANUNCIOS_POR_LOTE anuncios a ~140 tokens de salida cada uno,
+# mas el envoltorio JSON y los nombres de campo, son del orden de 8.000 tokens.
+# Si el proveedor aplicara un tope por defecto menor, el JSON llegaria truncado y
+# se perderia EL LOTE ENTERO como "no es JSON valido", que es la peor forma de
+# fallar: caras y silenciosa. Se pide explicito con holgura de 2x.
+MAX_TOKENS_SALIDA = ANUNCIOS_POR_LOTE * 400
+
+# Piso aceptable de tasa de acierto del cache de contexto. El modelo de costo
+# supone 0,95; por debajo de este valor el supuesto economico de la seccion 6 del
+# informe deja de sostenerse y hay que revisarlo antes de escalar el corpus.
+UMBRAL_CACHE_HIT = 0.80
 
 # Temperatura 0 no es "mas preciso", es MENOS VARIABLE, y eso es lo que hace
 # que el prefijo estable rinda cache y que dos corridas sean comparables.
