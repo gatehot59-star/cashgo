@@ -6,8 +6,54 @@ on:
   pull_request:
     branches: ["main"]
 
+# D2 (hallazgo del auditor externo, 2026-09-07): antes esto era UN job secuencial,
+# y el paso de custodia (inventario + diff del CSV) estaba ANTES de la suite. En el
+# head de13b9a6 un CSV desactualizado por una linea puso todo en rojo y dejo la
+# suite, el control positivo, el pipeline y los modelos en `skipped`: un defecto
+# DOCUMENTAL ciego la verificacion del CODIGO entero, y durante horas no se supo si
+# las ocho correcciones B1-B8 funcionaban.
+#
+# Ahora son dos jobs INDEPENDIENTES y en paralelo:
+#   custodia -> los recibos describen este arbol? (documental)
+#   suite    -> el codigo funciona? (funcional)
+# Un CSV viejo da rojo en `custodia` SIN ocultar el estado de `suite`, y viceversa.
+# Los dos tienen que estar verdes para declarar el head verificado; la diferencia
+# es que ahora se sabe CUAL de los dos fallo sin leer logs.
+
 jobs:
+  custodia:
+    name: custodia (recibos vs arbol)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Sin dependencias: los tres instrumentos de custodia son stdlib pura. Eso
+      # es deliberado, asi un fallo de custodia nunca puede ser un fallo de pip.
+      - name: Inventario estructural (guard propio)
+        run: python3 scripts/inventario.py
+
+      # D1: `--csv` ahora manda los mensajes de guard a stderr, asi que stdout es
+      # un CSV valido y el diff compara CSV contra CSV. Antes los dos lados
+      # traian la linea "GUARD VERDE" adentro del CSV y el diff pasaba igual:
+      # un guard que compara dos copias del mismo error.
+      - name: Diff del inventario contra la evidencia commiteada
+        run: python3 scripts/inventario.py --csv | diff -u evidencia/inventario.csv -
+
+      # Cierra "informe != CSV" por construccion: la fila TOTAL del dossier tiene
+      # que salir del CSV, no de los dedos de quien lo escribio.
+      - name: La tabla del informe sale del CSV
+        run: python3 scripts/informe_vs_csv.py
+
+      # "Canonizado" como propiedad verificable y no como declaracion.
+      - name: Manifiesto de evidencia
+        run: python3 scripts/manifiesto.py --verificar
+
   suite:
+    name: suite (el codigo funciona)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -33,26 +79,15 @@ jobs:
       - name: Generar fixtures (datos de prueba como codigo)
         run: python -m fase0.fixtures.generar
 
-      # D6 (hallazgo A5 del auditor externo): el inventario sostiene la seccion
-      # cuantitativa del informe y hasta ahora solo se habia corrido en el sandbox
-      # del autor, nunca en el instrumento ajeno. Ademas se compara contra el CSV
-      # commiteado: si el arbol cambia y el CSV no, rojo.
-      - name: Inventario estructural + diff contra la evidencia commiteada
-        run: |
-          python3 scripts/inventario.py
-          python3 scripts/inventario.py --csv > /tmp/inventario_ci.csv
-          diff -u evidencia/inventario.csv /tmp/inventario_ci.csv
-
-      # D7 (cierra A1): "canonizado" pasa de declaracion a propiedad verificable.
-      - name: Manifiesto de evidencia
-        run: python3 scripts/manifiesto.py --verificar
-
       # Ninguna de las dos tandas toca la red: el pipeline corre contra fixture y
       # el modelo se reemplaza por un clasificador de reglas. Es la propiedad que
       # hace que este CI sea util en un fork y en un PR de alguien de afuera.
       - name: Suite (128 tests, sin red)
         run: python -m unittest discover -s fase0/tests -t . -v
 
+      # D3: el script se niega a arrancar si el arbol esta sucio en los archivos
+      # que muta. En el runner el checkout esta limpio y los fixtures generados
+      # arriba estan en .gitignore, asi que este guard no puede dar falso rojo.
       - name: Control positivo (7 mutaciones, cada una por su test)
         run: bash scripts/control_positivo_suite.sh
 
@@ -67,11 +102,10 @@ jobs:
           python scripts/modelo_costo_arq3.py
           python scripts/sensibilidad_infra_y_equipo.py
 
-      # D5 (cierra los dos huecos declarados en 7.4 del informe). Van con
-      # continue-on-error a proposito: son controles NUEVOS y su primer resultado
-      # es informacion, no un porton. Convertirlos en bloqueantes es una decision
-      # aparte, que se toma cuando se sepa que reportan. Hasta entonces su
-      # resultado es NO MEDIDO (10.11 del informe).
+      # Van con continue-on-error a proposito: son controles NUEVOS y su primer
+      # resultado es informacion, no un porton. Convertirlos en bloqueantes es una
+      # decision aparte, que se toma cuando se sepa que reportan. Hasta entonces
+      # su resultado es NO MEDIDO y esta declarado asi en el informe.
       - name: Auditoria de dependencias (pip-audit)
         continue-on-error: true
         run: |

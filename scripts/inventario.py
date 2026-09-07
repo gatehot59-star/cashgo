@@ -8,7 +8,7 @@ identica al total de lineas del archivo, y eso se verifica con un assert: un
 inventario cuya suma no cierra es un inventario que no sirve para auditar.
 
 DEFECTO PROPIO QUE ORIGINO ESTE SCRIPT (2026-09-06): la primera version de este
-conteo lo hice inline con `ast.get_docstring(...).count("\n")+1`, que cuenta las
+conteo lo hice inline con `ast.get_docstring(...).count(...)+1`, que cuenta las
 lineas del TEXTO del docstring y no las que ocupa en el archivo (ignora las
 comillas de apertura y cierre). Resultado: fase0/__init__.py reporto -1 lineas
 de codigo. Un negativo es imposible por construccion, asi que el instrumento
@@ -25,6 +25,14 @@ simulacion de una verificacion.
 
 El guard corregido mide algo falsable: que TODOS los archivos parseen. Si uno no
 parsea, su conteo de docstrings es invalido, se marca NO MEDIDO y el exit es 1.
+
+TERCER DEFECTO PROPIO, HALLAZGO D1 DEL AUDITOR EXTERNO (2026-09-07): en modo
+`--csv` este script imprimia la linea "GUARD VERDE: ..." en STDOUT, o sea DENTRO
+del CSV. El archivo `evidencia/inventario.csv` no era un CSV valido: cualquier
+parser real se rompe en esa linea. El `diff` del CI pasaba igual porque los dos
+lados tenian la misma basura, que es exactamente el modo de falla de un guard que
+compara dos copias del mismo error. Correccion: en modo `--csv` TODO mensaje de
+guard va a stderr. Stdout es el CSV y nada mas.
 
 Uso:  python3 scripts/inventario.py [--csv]
 Exit: 0 si todos los archivos parsean y todas las sumas cierran.
@@ -68,9 +76,9 @@ def lineas_de_docstring(arbol: ast.AST) -> set[int]:
     Numeros de linea (1-indexados) ocupados por docstrings EN EL ARCHIVO.
 
     Usa lineno/end_lineno del nodo Constant, o sea las posiciones reales
-    incluyendo las comillas. Contar los "\n" del texto del docstring subestima
-    por 1 o 2 lineas segun el estilo de cierre, que es el bug que este script
-    documenta en su encabezado.
+    incluyendo las comillas. Contar los saltos de linea del TEXTO del docstring
+    subestima por 1 o 2 lineas segun el estilo de cierre, que es el bug que este
+    script documenta en su encabezado.
     """
     lineas: set[int] = set()
     contenedores = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
@@ -140,6 +148,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--csv", action="store_true", help="salida CSV en vez de tabla")
     args = p.parse_args(argv)
 
+    # D1: en modo CSV, stdout es EXCLUSIVAMENTE el CSV. Todo mensaje humano,
+    # incluido el guard verde, va a stderr. Asi `--csv > archivo.csv` produce un
+    # archivo que un parser real puede leer, y el guard sigue siendo visible en
+    # la consola y en el log del CI.
+    canal = sys.stderr if args.csv else sys.stdout
+
     archivos = sorted(
         f for d in OBJETIVOS for f in (RAIZ / d).rglob("*.py")
         if "__pycache__" not in f.parts
@@ -195,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"\nGUARD VERDE: los {len(filas)} archivos parsean y en todos "
-          f"total = codigo + comentario + docstring + blanco.")
+          f"total = codigo + comentario + docstring + blanco.", file=canal)
     return 0
 
 

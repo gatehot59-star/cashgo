@@ -1,0 +1,14 @@
+# Normalizacion de fin de linea.
+#
+# Preventivo, no reactivo: `scripts/manifiesto.py` firma bytes crudos, asi que un
+# clon en una plataforma que convierta LF a CRLF produciria hashes distintos para
+# archivos identicos y el guard daria rojo por una razon que no tiene nada que ver
+# con el contenido. Con esto el arbol de trabajo es LF en todas las plataformas y
+# el manifiesto es reproducible en cualquier clon.
+* text=auto eol=lf
+
+# El PDF del entregable no es reproducible byte a byte (WeasyPrint embebe el
+# timestamp de creacion, medido: tres corridas dieron 23.259 / 23.251 / 23.254
+# bytes y tres SHA-256 distintos). No se versiona; si algun dia se versionara,
+# tiene que ser binario.
+*.pdf binary
