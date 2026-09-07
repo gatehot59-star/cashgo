@@ -13,15 +13,23 @@ on:
 # DOCUMENTAL ciego la verificacion del CODIGO entero, y durante horas no se supo si
 # las ocho correcciones B1-B8 funcionaban.
 #
-# Ahora son TRES jobs independientes y en paralelo, uno por PREGUNTA:
-#   custodia   -> los recibos describen este arbol?   (documental)
-#   suite      -> el codigo funciona?                 (funcional)
-#   seguridad  -> hay CVEs o secretos?                (seguridad)
+# Ahora hay un job por PREGUNTA:
+#   custodia    -> los recibos describen este arbol?  (documental)
+#   suite       -> el codigo funciona?                (funcional)
+#   dependencias-> hay CVEs en el arbol de deps?      (seguridad, no determinista)
+#   secretos    -> hay credenciales en el historial?  (seguridad, determinista)
 #
-# El tercero se separo al volverlo bloqueante, por el mismo razonamiento que llevo
-# a partir el primero: un CVE nuevo publicado manana puede poner `seguridad` en
-# rojo sin que nadie toque una linea, y ese rojo NO tiene que confundirse con
-# "el codigo se rompio". Tres senales ortogonales, tres veredictos legibles.
+# LOS DOS DE SEGURIDAD ESTABAN EN UN SOLO JOB Y DURO UNA CORRIDA. Dio `failure` y
+# el veredicto no decia CUAL de los dos habia fallado: para saberlo hacia falta
+# abrir el log, o peor, adivinar. Es el MISMO defecto que llevo a partir el job
+# original (D2), una capa mas abajo y cometido por mi doce minutos despues de
+# corregirlo arriba. Un job que agrupa dos preguntas devuelve media respuesta.
+#
+# Ahora cada control tiene su job, y ademas son de naturaleza distinta, que es la
+# razon de fondo para no mezclarlos: `dependencias` consulta una base de datos viva
+# y puede ponerse rojo manana sin que nadie toque una linea; `secretos` es
+# determinista sobre un historial dado. Confundir esos dos rojos es confundir
+# "aparecio un CVE" con "alguien filtro una credencial".
 
 jobs:
   custodia:
@@ -111,71 +119,66 @@ jobs:
           path: artefactos/
           retention-days: 14
 
-  seguridad:
-    name: seguridad (CVEs y secretos) - BLOQUEANTE
+  dependencias:
+    name: dependencias (CVEs) - BLOQUEANTE
     runs-on: ubuntu-24.04
     steps:
-      # fetch-depth 0 NO es opcional para gitleaks: con la profundidad por defecto
-      # (1) solo ve el arbol del ultimo commit, y entonces un secreto commiteado y
-      # despues borrado sigue vivo en el historial y el escaneo lo da por limpio.
-      # Un secreto filtrado NO se desfiltra: hay que buscarlo donde quedo.
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      # AUDITORIA DE DEPENDENCIAS. Sin `continue-on-error`: este paso ahora ES un
-      # porton y no un aviso.
+      # Sin `continue-on-error`: este paso ES un porton.
       #
-      # POR QUE SE PUEDE BLOQUEAR AHORA Y NO ANTES: hasta el 2026-09-07 su
-      # resultado era NO MEDIDO, y volver bloqueante un control cuyo resultado no
-      # se conoce es cambiar un adorno por una ruleta. Se midio primero, contra la
-      # base de datos de vulnerabilidades, en vivo:
-      #
+      # MEDICION PREVIA de las tres dependencias DIRECTAS (2026-09-07, en vivo):
       #   pydantic 2.13.4 .... sin vulnerabilidades conocidas
       #   weasyprint 69.0 .... es LA VERSION QUE ARREGLA CVE-2026-49452
-      #                        (inyeccion de CSS via presentational hints; afecta
-      #                        <= 68.1). Fuente: GHSA-jhhc-3hcp-qhm5
+      #                        (inyeccion de CSS via presentational hints, <= 68.1)
       #   pypdf 6.14.2 ....... es LA VERSION QUE ARREGLA CVE-2026-59935
-      #                        (bucle infinito con inline images ASCII85/ASCIIHex
-      #                        al extraer texto; afecta < 6.14.2, CVSS 8.7).
-      #                        Fuente: GHSA-g867-7843-wf8q
+      #                        (bucle infinito ASCII85/ASCIIHex, < 6.14.2, CVSS 8.7)
       #
-      # Los dos ultimos importan de verdad y no son casualidad: este pipeline
-      # RENDERIZA HTML construido con texto de terceros (weasyprint) y despues
-      # EXTRAE TEXTO de un PDF en los tests (pypdf). O sea que las dos rutas
-      # afectadas son rutas que el codigo recorre.
+      # Y LO QUE ESA MEDICION NO CUBRIO, que es el hueco que este job existe para
+      # tapar: pip-audit audita el ARBOL COMPLETO de dependencias, no las tres
+      # directas. weasyprint arrastra tinycss2, cssselect2, pyphen, fonttools y
+      # pydyf; pydantic arrastra pydantic-core, annotated-types y typing-extensions.
+      # Un CVE en cualquiera de esas es un CVE de este proyecto, y yo verifique tres
+      # paquetes y hable como si hubiera verificado el conjunto. Este job es lo
+      # unico que mide el conjunto.
       #
-      # CONSECUENCIA DECLARADA, y es la razon del job aparte: este es el UNICO
-      # paso del CI que no es determinista. Un CVE publicado manana pone el repo
-      # en rojo sin que nadie toque una linea. Eso es exactamente lo que se quiere
-      # de una auditoria de dependencias, y por eso su rojo no puede mezclarse con
-      # el de la suite.
-      - name: Auditoria de dependencias (pip-audit) - BLOQUEANTE
+      # `--strict` incluido a proposito: si pip-audit no puede resolver o auditar
+      # alguna dependencia, eso es un NO MEDIDO y un NO MEDIDO no puede pasar por
+      # verde en un porton de seguridad.
+      - name: pip-audit sobre el arbol completo de dependencias
         run: |
           pip install pip-audit
           pip-audit -r fase0/requirements.txt --strict
 
-      # ESCANEO DE SECRETOS. Sin `continue-on-error`.
+  secretos:
+    name: secretos (historial completo) - BLOQUEANTE
+    runs-on: ubuntu-24.04
+    steps:
+      # fetch-depth 0 NO es opcional: con la profundidad por defecto (1) el escaneo
+      # solo ve el arbol del ultimo commit, asi que un secreto commiteado y borrado
+      # despues sigue vivo en el historial y el escaneo lo da por limpio.
+      # Un secreto filtrado NO se desfiltra: hay que buscarlo donde quedo.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Sin `continue-on-error`: este paso ES un porton.
       #
-      # Medicion previa (2026-09-07): se corrio un escaneo propio con 13 reglas de
-      # alta senal de gitleaks (PAT de GitHub clasico y fine-grained, tokens de
-      # app/OAuth, AWS, OpenAI, Slack, Google, Stripe, bloques de clave privada,
-      # JWT, token de Meta, y asignacion generica de api_key/secret/token/password)
-      # sobre los 44 archivos del arbol: CERO hallazgos. Y con control positivo:
-      # un canario `sk-...` de 32 caracteres fue cazado por dos reglas, asi que el
-      # escaneo era falsable y no un adorno.
+      # MEDICION PREVIA (2026-09-07): escaneo propio con 13 reglas de alta senal de
+      # gitleaks (PAT de GitHub clasico y fine-grained, tokens de app/OAuth, AWS,
+      # OpenAI, Slack, Google, Stripe, bloques de clave privada, JWT, token de Meta
+      # y asignacion generica de api_key/secret/token/password) sobre los 44
+      # archivos del ARBOL: cero hallazgos. Con control positivo: un canario
+      # `sk-...` de 32 caracteres fue cazado por dos reglas, asi que el escaneo era
+      # falsable y no un adorno.
       #
-      # LIMITE DECLARADO de esa medicion propia, y es la razon por la que este
-      # paso hace falta igual: cubrio el ARBOL, no el HISTORIAL de los 30 commits.
-      # Un secreto que entro y se borro despues no aparece en el arbol. Eso solo
-      # lo puede ver gitleaks con fetch-depth 0, y su primer resultado sobre el
-      # historial completo sigue siendo, honestamente, un estado no medido hasta
-      # que este job corra.
-      - name: Escaneo de secretos (gitleaks, historial completo) - BLOQUEANTE
+      # LIMITE de esa medicion, y la razon de este paso: cubrio el ARBOL, no el
+      # HISTORIAL. Este paso es el unico que mira los 30 commits.
+      - name: gitleaks sobre los 30 commits
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
