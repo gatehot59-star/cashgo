@@ -1,42 +1,50 @@
 # EVIDENCIA CRUDA - VERBATIM (W-01)
 # Instrumento: bash scripts/control_positivo_suite.sh
-# Que prueba: que la suite PUEDE dar rojo. Inyecta 3 bugs reales, uno por vez.
-# Corrido por: BRAIN en su sandbox (Python 3.12.13)
-# Fecha: 2026-09-06
+# Que prueba: que la suite puede dar rojo, Y que da rojo POR EL TEST CORRECTO.
+# Corrido por: BRAIN en su sandbox (Python 3.12.13) - Fecha: 2026-09-07
 #
-==============================================================
-CONTROL POSITIVO: la suite tiene que dar ROJO ante estos 3 bugs
-==============================================================
-  [CAZADO]  content_hash incluye la fecha de entrega -> se rompe el dedup
-  [CAZADO]  angulo pasa de Literal cerrado a str -> se cae el guard de inyeccion
-  [CAZADO]  el informe deja de escapar HTML -> XSS en el entregable
---------------------------------------------------------------
-VERDE: las 3 mutaciones fueron detectadas. La suite puede dar rojo.
+==============================================================================
+CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por azar
+==============================================================================
+  [CAZADA]  content_hash incluye la fecha de inicio -> se rompe el dedup
+            por: test_ignora_la_fecha_de_inicio
+  [CAZADA]  angulo pasa de Literal cerrado a str -> se cae el guard de inyeccion
+            por: test_cada_campo_cerrado_contiene_por_si_solo
+  [CAZADA]  el informe deja de escapar HTML -> XSS en el entregable
+            por: test_no_queda_ningun_script_en_todo_el_documento
+  [CAZADA]  se deja de filtrar ad_id alucinados -> el informe cita anuncios inexistentes
+            por: test_saca_ad_ids_alucinados
+  [CAZADA]  sin_urls deja de sustituir -> URLs ajenas en el entregable
+            por: test_se_aplica_en_el_esquema_del_analisis
+  [CAZADA]  normalizar deja de neutralizar <<< -> contaminacion cruzada intra-lote
+            por: test_el_copy_no_puede_fabricar_un_bloque
+  [CAZADA]  se deja de detectar el ad_id repetido -> una clasificacion se pierde sin registro
+            por: test_gana_la_primera_ocurrencia_y_la_segunda_se_registra
+------------------------------------------------------------------------------
+VERDE: 7/7 mutaciones cazadas por su test especifico.
 Y el arbol restaurado sigue en verde.
 EXIT=0
 
 # ---------------------------------------------------------------------------
-# LA PRIMERA CORRIDA DE ESTE SCRIPT, VERBATIM, ANTES DE ARREGLAR NADA:
+# LAS DOS CORRIDAS QUE DIERON ROJO, VERBATIM, Y QUE SON EL VALOR DE ESTE SCRIPT:
 #
-#   ==============================================================
-#   CONTROL POSITIVO: la suite tiene que dar ROJO ante estos 3 bugs
-#   ==============================================================
-#     [ROJO ESPERADO / VERDE OBTENIDO]  content_hash incluye la fecha de entrega -> se rompe el dedup  <-- LA SUITE NO LO CAZA
-#     [CAZADO]  angulo pasa de Literal cerrado a str -> se cae el guard de inyeccion
-#     [CAZADO]  el informe deja de escapar HTML -> XSS en el entregable
-#   --------------------------------------------------------------
+# CORRIDA 1 (2026-09-06), version original del script:
+#   [ROJO ESPERADO / VERDE OBTENIDO]  content_hash incluye la fecha de entrega
 #   ROJO: 1 mutacion(es) no detectada(s). La suite es decorativa ahi.
+# Habia un test contra la fecha de FIN y ninguno contra la de INICIO. El caso real
+# que rompe: un anunciante pausa una creatividad y la relanza dos meses despues.
 #
-# Se deja la salida FALLIDA commiteada a proposito. El hallazgo es la mutacion 1:
-# yo tenia un test que protegia contra meter la fecha de FIN en el content_hash y
-# NINGUNO contra la de INICIO, y estaba convencido de que el dedup estaba cubierto.
+# CORRIDA 2 (2026-09-07), primera del script endurecido por B1:
+#   [ROJO AJENO]  angulo pasa de Literal cerrado a str
+#                la suite fallo pero 'test_si_el_modelo_obedece_la_inyeccion_el_esquema_lo_frena'
+#                no aparece en la salida: fallo por otro motivo, asi que la
+#                propiedad NO se midio
+#   ROJO: 1 mutacion(es) no cazada(s) correctamente de 7.
+# Ese es el DEFECTO 12: el test que la seccion 7.3 del informe citaba como LA
+# prueba de que la contencion de inyeccion es estructural pasaba en VERDE con la
+# taxonomia de `angulo` completamente abierta, porque el item hostil traia tambien
+# `cta` invalido y el rechazo venia de `cta`. Verde por redundancia.
 #
-# El caso real que rompe: un anunciante pausa una creatividad y la relanza dos
-# meses despues. Es el mismo hecho de mercado con otro `inicio`. Con la fecha
-# adentro del hash, esa creatividad vuelve a pagar tokens cada vez que alguien la
-# reactiva, y el 88% de ahorro del modelo de costo se degrada sin que nada avise.
-#
-# Es el sesgo de SELECCION que un instrumento propio NO cubre: el compilador no
-# tiene lealtades, pero yo elegi que medir. El test que faltaba se agrego en
-# fase0/tests/test_schemas_y_dedup.py::test_ignora_la_fecha_de_inicio.
+# Las dos corridas se dejan aca a proposito. Un script de control positivo que
+# nunca reporto un rojo es sospechoso: probablemente no puede reportarlo.
 # ---------------------------------------------------------------------------

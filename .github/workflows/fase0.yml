@@ -33,13 +33,27 @@ jobs:
       - name: Generar fixtures (datos de prueba como codigo)
         run: python -m fase0.fixtures.generar
 
+      # D6 (hallazgo A5 del auditor externo): el inventario sostiene la seccion
+      # cuantitativa del informe y hasta ahora solo se habia corrido en el sandbox
+      # del autor, nunca en el instrumento ajeno. Ademas se compara contra el CSV
+      # commiteado: si el arbol cambia y el CSV no, rojo.
+      - name: Inventario estructural + diff contra la evidencia commiteada
+        run: |
+          python3 scripts/inventario.py
+          python3 scripts/inventario.py --csv > /tmp/inventario_ci.csv
+          diff -u evidencia/inventario.csv /tmp/inventario_ci.csv
+
+      # D7 (cierra A1): "canonizado" pasa de declaracion a propiedad verificable.
+      - name: Manifiesto de evidencia
+        run: python3 scripts/manifiesto.py --verificar
+
       # Ninguna de las dos tandas toca la red: el pipeline corre contra fixture y
       # el modelo se reemplaza por un clasificador de reglas. Es la propiedad que
       # hace que este CI sea util en un fork y en un PR de alguien de afuera.
-      - name: Suite (101 tests, sin red)
+      - name: Suite (128 tests, sin red)
         run: python -m unittest discover -s fase0/tests -t . -v
 
-      - name: Control positivo (la suite tiene que poder dar rojo)
+      - name: Control positivo (7 mutaciones, cada una por su test)
         run: bash scripts/control_positivo_suite.sh
 
       - name: Pipeline end to end + PDF
@@ -52,6 +66,23 @@ jobs:
         run: |
           python scripts/modelo_costo_arq3.py
           python scripts/sensibilidad_infra_y_equipo.py
+
+      # D5 (cierra los dos huecos declarados en 7.4 del informe). Van con
+      # continue-on-error a proposito: son controles NUEVOS y su primer resultado
+      # es informacion, no un porton. Convertirlos en bloqueantes es una decision
+      # aparte, que se toma cuando se sepa que reportan. Hasta entonces su
+      # resultado es NO MEDIDO (10.11 del informe).
+      - name: Auditoria de dependencias (pip-audit)
+        continue-on-error: true
+        run: |
+          pip install pip-audit
+          pip-audit -r fase0/requirements.txt --strict
+
+      - name: Escaneo de secretos (gitleaks)
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/upload-artifact@v4
         with:

@@ -32,6 +32,7 @@ from .cognitive import (
     PREFIJO_SHA256,
     Analizador,
     Completion,
+    RespuestaModelo,
     cliente_deepseek,
     estimar_tokens,
 )
@@ -57,6 +58,11 @@ class Metricas:
     tokens_prefijo_por_lote: int = 0
     prefijo_sha256: str = PREFIJO_SHA256
     motivos_rechazo: list[str] = field(default_factory=list)
+    # B4 / D2: consumo real del proveedor. None = no reportado, que NO es cero.
+    tok_entrada: int | None = None
+    tok_salida: int | None = None
+    tok_cache_hit: int | None = None
+    tok_cache_miss: int | None = None
 
     @property
     def ratio_dedup(self) -> float:
@@ -64,9 +70,34 @@ class Metricas:
             return 0.0
         return (self.anuncios_ya_vistos + self.duplicados_en_lote) / self.anuncios_traidos
 
+    @property
+    def cache_hit_ratio(self) -> float | None:
+        """
+        Tasa medida de acierto del cache de contexto, o None si el proveedor no la
+        reporta. Es el parametro del que depende el margen del 96% de la seccion 6
+        del informe de auditoria, y hasta el 2026-09-07 no tenia instrumento.
+        """
+        if self.tok_cache_hit is None or self.tok_cache_miss is None:
+            return None
+        total = self.tok_cache_hit + self.tok_cache_miss
+        return self.tok_cache_hit / total if total else None
+
+    def veredicto_cache(self) -> str:
+        """Tres estados explicitos, no dos."""
+        r = self.cache_hit_ratio
+        if r is None:
+            return "NO MEDIDO (el proveedor no reporto tokens de cache)"
+        if r >= config.UMBRAL_CACHE_HIT:
+            return f"VERDE medido {r:.1%} >= umbral {config.UMBRAL_CACHE_HIT:.0%}"
+        return (f"ROJO medido {r:.1%} < umbral {config.UMBRAL_CACHE_HIT:.0%}: "
+                "el supuesto economico del modelo de costo NO se sostiene")
+
     def como_dict(self) -> dict[str, object]:
         d = {k: v for k, v in self.__dict__.items()}
         d["ratio_dedup"] = round(self.ratio_dedup, 4)
+        r = self.cache_hit_ratio
+        d["cache_hit_ratio"] = round(r, 4) if r is not None else None
+        d["veredicto_cache"] = self.veredicto_cache()
         return d
 
 
@@ -156,6 +187,12 @@ def correr_auditoria(
             for an in res.analisis if an.ad_id in por_ad
         ]
         store.guardar_analisis(pares, analizador.modelo)
+        if res.uso is not None:
+            store.guardar_uso(
+                modelo=analizador.modelo, lote=m.lotes_al_modelo, anuncios=len(lote),
+                entrada=res.uso.entrada, salida=res.uso.salida,
+                hit=res.uso.hit, miss=res.uso.miss,
+            )
         for h, an in pares:
             analisis_por_hash[h] = an
         m.rechazos += len(res.rechazos)
@@ -208,6 +245,12 @@ def correr_auditoria(
         hoy=hoy,
     )
 
+    uso = store.uso_acumulado()
+    m.tok_entrada = uso["entrada"]
+    m.tok_salida = uso["salida"]
+    m.tok_cache_hit = uso["hit"]
+    m.tok_cache_miss = uso["miss"]
+
     store.log("corrida_fin", m.como_dict())
     return Resultado(informe=informe, metricas=m)
 
@@ -252,6 +295,12 @@ def _completion_fixture() -> Completion:
     Sirve para validar el PIPELINE, nunca para evaluar la CALIDAD de la
     clasificacion. Esa evaluacion necesita el modelo real y va declarada como
     pendiente.
+
+    Y una honestidad que el hallazgo 10.10 obliga a escribir aca: la derivacion de
+    `formato` a partir de las plataformas es EXACTAMENTE lo que el prompt prohibe
+    (adivinar). Existe solo para que la seccion 4 del informe de ejemplo no salga
+    vacia en el --dry-run. Con el modelo real, `formato` sera "desconocido" casi
+    siempre, porque ningun campo de CAMPOS_ADS_ARCHIVE informa el tipo de medio.
     """
     import re
 
@@ -288,7 +337,7 @@ def _completion_fixture() -> Completion:
                 return etiqueta
         return defecto
 
-    def _c(_modelo: str, mensajes: list[dict[str, str]], _temp: float) -> str:
+    def _c(_modelo: str, mensajes: list[dict[str, str]], _temp: float) -> RespuestaModelo:
         user = mensajes[-1]["content"]
         bloques = re.findall(r"<<<ANUNCIO>>>(.*?)<<<FIN>>>", user, re.DOTALL)
         salida = []
@@ -311,7 +360,10 @@ def _completion_fixture() -> Completion:
                 "publico_sugerido": "no inferido por el clasificador de fixture",
                 "confianza": 0.4 if copy else 0.0,
             })
-        return json.dumps({"analisis": salida}, ensure_ascii=False)
+        # Sin `uso`: el clasificador de fixture no es un proveedor y no puede
+        # inventar un consumo de tokens. Por eso el --dry-run reporta el cache
+        # como NO MEDIDO, que es exactamente lo que es.
+        return RespuestaModelo(texto=json.dumps({"analisis": salida}, ensure_ascii=False))
 
     return _c
 
@@ -385,6 +437,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"  llamadas a ads_archive .......... {m.llamadas_api:>6}")
     print(f"  reintentos por 613 .............. {m.reintentos_613:>6}")
     print(f"  prefijo sha256 .................. {m.prefijo_sha256[:16]}...")
+    print(f"  cache de contexto ............... {m.veredicto_cache()}")
     print(f"  angulos sin explotar ............ {len(res.informe.angulos_no_explotados):>6} "
           f"{list(res.informe.angulos_no_explotados)}")
     print(f"  HTML ............................ {res.html}")
