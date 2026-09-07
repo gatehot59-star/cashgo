@@ -6,10 +6,10 @@ de conjuntos es trabajo determinista: un LLM haciendolo es un LLM equivocandose
 gratis, y ademas irreproducible entre corridas. Es la regla Cerebro vs Brazo
 aplicada al entregable, no solo a las escrituras.
 
-La narrativa opcional (un parrafo de Pro) entra como texto y se ESCAPA al
-renderizar, igual que el copy de los competidores. Un informe que se genera a
-partir de texto de terceros y se abre en un navegador es una superficie de XSS,
-aunque el "navegador" sea WeasyPrint.
+La narrativa opcional (un parrafo de Pro) entra como texto, pasa por el MISMO
+filtro de URLs que la promesa (H-03) y se ESCAPA al renderizar, igual que el copy
+de los competidores. Un informe que se genera a partir de texto de terceros y se
+abre en un navegador es una superficie de XSS, aunque el "navegador" sea WeasyPrint.
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ from .schemas import (
     FilaCompetidor,
     Informe,
     normalizar,
+    sin_urls,
 )
 
 TODOS_LOS_ANGULOS: tuple[str, ...] = (
@@ -145,7 +146,14 @@ def construir_informe(
         longevos=longevos,
         rechazos=rechazos,
         anuncios_descartados_por_dedup=descartados_por_dedup,
-        narrativa=normalizar(narrativa)[:1200],
+        # H-03 (auditoria independiente de Tao, 2026-09-07): `sin_urls` protegia
+        # `promesa` y `publico_sugerido` y NO la narrativa, que es el campo mas
+        # expuesto de los tres: es texto que genera el modelo Pro a partir del copy
+        # de terceros, o sea el unico donde una inyeccion indirecta puede ELEGIR
+        # que se imprime en un PDF que firmamos nosotros. Latente hoy porque
+        # `pipeline.main` no pasa narrativa; el dia que se conecte el parrafo de
+        # Pro el agujero se abria solo y en silencio.
+        narrativa=sin_urls(normalizar(narrativa))[:1200],
     )
 
 

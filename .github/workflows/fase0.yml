@@ -16,6 +16,11 @@ name: fase0
 #
 # PROHIBIDO `continue-on-error` en los tres de seguridad. Un paso que no puede
 # hacer fallar el job no es un control: es un adorno con forma de control.
+#
+# Los dos de deps deciden su color con `scripts/gate_deps.py`, que separa tres
+# estados donde pip-audit da uno solo: verde / rojo de SEGURIDAD / rojo de
+# INSTRUMENTO. El `|| true` sobre pip-audit no es una excepcion al parrafo de
+# arriba: es descartar un exit code que no discrimina para que decida el que si.
 
 on:
   push:
@@ -94,17 +99,33 @@ jobs:
         with:
           python-version: "3.12"
 
-      # `--no-deps` audita EXACTAMENTE los 3 pines de requirements.txt. Su rojo
-      # tiene dueno: subir un pin nuestro.
+      # `--no-deps` audita EXACTAMENTE los 3 pines de requirements.txt.
       #
-      # `--upgrade pip` NO es cosmetico: setup-python usa el pip horneado en el
-      # toolchain, no el de PyPI. Se probo como hipotesis del rojo y NO alcanzo
-      # (ver 5.4): el rojo de este job sigue sin diagnosticar y hace falta leer
-      # el log. Hasta entonces su causa es NO MEDIDA, no supuesta.
+      # El `|| true` va sobre pip-audit y NO sobre el porton, y no relaja nada: el
+      # exit code de pip-audit vale 1 para un advisory, para un error del servicio
+      # y para un crash, asi que se descarta a proposito y decide el color del job
+      # scripts/gate_deps.py, leyendo el informe. Sin `--strict`: el gate ya trata
+      # una dependencia saltada como respuesta parcial y ademas dice CUAL.
       - run: |
           python -m pip install --upgrade pip
           pip install pip-audit
-          pip-audit -r fase0/requirements.txt --no-deps --strict
+
+      - name: auditar los 3 pines directos
+        run: |
+          mkdir -p informe-deps
+          pip-audit -r fase0/requirements.txt --no-deps \
+            --timeout 60 --format json -o informe-deps/pins.json || true
+          python3 scripts/gate_deps.py informe-deps/pins.json
+
+      # Sin publicar el informe es invisible: nadie del equipo tiene herramientas
+      # para abrir el log de una corrida, y eso fue exactamente lo que dejo la
+      # causa del rojo en NO MEDIDO durante todo un turno.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deps-pins-informe
+          path: informe-deps/pins.json
+          retention-days: 14
 
   deps-arbol:
     name: deps-arbol (CVEs en el arbol transitivo) - BLOQUEANTE
@@ -123,7 +144,20 @@ jobs:
       - run: |
           python -m pip install --upgrade pip
           pip install pip-audit
-          pip-audit -r fase0/requirements.txt --strict
+
+      - name: auditar el arbol completo
+        run: |
+          mkdir -p informe-deps
+          pip-audit -r fase0/requirements.txt \
+            --timeout 60 --format json -o informe-deps/arbol.json || true
+          python3 scripts/gate_deps.py informe-deps/arbol.json
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deps-arbol-informe
+          path: informe-deps/arbol.json
+          retention-days: 14
 
   secretos:
     name: secretos (historial completo) - BLOQUEANTE
@@ -135,7 +169,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # VERDE ajeno en tres corridas seguidas sobre los 30 commits. Es el unico
+      # VERDE ajeno en cuatro corridas seguidas sobre los 30 commits. Es el unico
       # control de este repo que mira el historial y no el arbol.
       - uses: gitleaks/gitleaks-action@v2
         env:
