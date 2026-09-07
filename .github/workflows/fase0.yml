@@ -36,7 +36,7 @@ jobs:
       # Ninguna de las dos tandas toca la red: el pipeline corre contra fixture y
       # el modelo se reemplaza por un clasificador de reglas. Es la propiedad que
       # hace que este CI sea util en un fork y en un PR de alguien de afuera.
-      - name: Suite (100 tests, sin red)
+      - name: Suite (101 tests, sin red)
         run: python -m unittest discover -s fase0/tests -t . -v
 
       - name: Control positivo (la suite tiene que poder dar rojo)

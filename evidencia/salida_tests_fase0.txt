@@ -4,19 +4,19 @@
 # Entorno: Python 3.12.13, pydantic 2.13.4, weasyprint 69.0, pypdf 6.14.2
 # Fecha: 2026-09-06
 #
-# La salida -v completa (100 lineas de nombres de test) la reproduce el CI en cada
+# La salida -v completa (101 lineas de nombres de test) la reproduce el CI en cada
 # push y queda en el log del workflow `fase0`. Aca va el resumen del corredor mas
 # el desglose por clase computado con el propio loader de unittest, que es el dato
 # que permite auditar QUE se cubrio y no solo cuantos pasaron.
 
 ----------------------------------------------------------------------
-Ran 100 tests in 1.409s
+Ran 101 tests in 1.361s
 
 OK
 EXIT=0
 
 # --- desglose por clase (unittest.TestLoader().discover) ---
-total de tests descubiertos: 100
+TOTAL: 101
 
     4  test_adlibrary.TestAlcanceComercial
     3  test_adlibrary.TestBatchDePageIds
@@ -30,7 +30,7 @@ total de tests descubiertos: 100
    10  test_cognitive.TestValidacionEstricta
     4  test_e2e_pipeline.TestConfigGuards
     1  test_e2e_pipeline.TestPdf
-   11  test_e2e_pipeline.TestPrimeraCorrida
+   12  test_e2e_pipeline.TestPrimeraCorrida
     2  test_e2e_pipeline.TestSegundaCorrida
     9  test_report.TestAgregacion
     4  test_report.TestContenidoDelHtml
@@ -42,9 +42,14 @@ total de tests descubiertos: 100
     4  test_schemas_y_dedup.TestParticionar
     4  test_schemas_y_dedup.TestSinUrls
 
+# NOTA DE CORRECCION (2026-09-06): la primera version de este recibo decia 100.
+# Agregue un test despues de generarlo y no lo regenere. Un conteo que no coincide
+# con el corredor es exactamente el dato que hace desconfiar del resto del recibo,
+# aunque el resto este bien. Recontado con el loader: 101.
+
 # ---------------------------------------------------------------------------
-# LOS TRES ROJOS REALES QUE ESTA SUITE PRODUJO MIENTRAS SE ESCRIBIA EL CODIGO.
-# Se dejan anotados porque un "100 tests OK" sin historia de fallas es
+# LOS ROJOS REALES QUE ESTA SUITE PRODUJO MIENTRAS SE ESCRIBIA EL CODIGO.
+# Se dejan anotados porque un "101 tests OK" sin historia de fallas es
 # sospechoso: una suite que nunca dio rojo probablemente no puede darlo.
 #
 # ROJO 1 - defecto del CODIGO, en adlibrary.py
@@ -61,7 +66,7 @@ total de tests descubiertos: 100
 #   poder comparar una auditoria con la del mes anterior. Era INVISIBLE en una
 #   sola corrida: solo lo encuentra un test que corre el pipeline dos veces.
 #
-# ROJO 3 y 4 - defectos de los TESTS, no del codigo (falsos rojos)
+# ROJOS 3, 4 y 5 - defectos de los TESTS, no del codigo (falsos rojos)
 #   AssertionError: '{' unexpectedly found in ...
 #   AssertionError: 'onload=' unexpectedly found in ...
 #   AssertionError: 0 not greater than or equal to 2   (b"/Type /Page")
