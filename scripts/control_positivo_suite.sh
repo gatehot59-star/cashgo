@@ -42,22 +42,77 @@
 #    mecanismo. Regla que sale de esto: **un instrumento que se transporta no
 #    puede contener secuencias de escape en sus datos.**
 #
-# LIMITACION CONOCIDA Y DECLARADA: la restauracion del arbol depende de
-# `trap ... EXIT`. Una interrupcion dura del proceso (corte del sandbox, kill -9)
-# puede dejar un MUTANTE vivo en fase0/. Si la suite falla despues de una corrida
-# interrumpida, lo primero a chequear es si quedo un `# MUTANTE` en el arbol.
+# 6. D3, hallazgo del auditor externo (2026-09-07): este script MUTA EL ARBOL REAL
+#    y la restauracion dependia de un unico `trap ... EXIT`. Ya dejo un mutante
+#    vivo en report.py una vez (commit df23b88), y no habia chequeo de arbol limpio
+#    antes de arrancar: si el arbol ya tenia cambios sin commitear, la restauracion
+#    por copia los pisaba o los mezclaba con el mutante, sin que nadie lo notara.
+#
+#    Tres correcciones, y ninguna es "tener mas cuidado":
+#      a) ARRANQUE BLOQUEADO SI EL ARBOL ESTA SUCIO en los archivos que se mutan.
+#         Con esto el defecto 17 tambien habria dado rojo LOCAL, no solo en el CI.
+#      b) La restauracion es DOBLE: copia del respaldo Y `git checkout --` de los
+#         archivos mutables. La copia cubre el caso sin git; git cubre el caso en
+#         que la copia se hizo sobre un arbol ya contaminado.
+#      c) El trap atrapa EXIT, INT y TERM y llama a la restauracion, no solo al
+#         borrado del temporal. Una interrupcion con Ctrl-C ahora restaura.
+#
+#    LIMITACION QUE SIGUE EN PIE Y SE DECLARA: un `kill -9` o la muerte del
+#    sandbox no ejecutan ningun trap. Si eso pasa, el arbol queda con un mutante.
+#    Lo que cambia con (a) es que la PROXIMA corrida se niega a arrancar en vez de
+#    trabajar sobre un arbol contaminado, y el CI da rojo en el diff de custodia.
+#    Verificacion manual: `git status --porcelain fase0` o `grep -rn "# MUTANTE" fase0`.
 #
 # Uso: bash scripts/control_positivo_suite.sh
 # Exit 0 = todas las mutaciones detectadas por el test correcto.
+# Exit 2 = el script se niega a correr (arbol sucio): no se midio nada.
 # ---------------------------------------------------------------------------
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Los unicos archivos que este script tiene permitido tocar. La lista es cerrada
+# a proposito: el guard de arbol limpio y la restauracion por git se aplican
+# EXACTAMENTE a estos, para no pisar trabajo en curso en el resto del arbol.
+ARCHIVOS_MUTABLES=(fase0/schemas.py fase0/report.py fase0/cognitive.py)
+
+HAY_GIT=0
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+    HAY_GIT=1
+fi
+
+# (a) Guard de arranque. Tres estados: limpio, sucio, y NO MEDIDO si no hay git.
+if [ "$HAY_GIT" -eq 1 ]; then
+    SUCIO="$(git status --porcelain -- "${ARCHIVOS_MUTABLES[@]}")"
+    if [ -n "$SUCIO" ]; then
+        echo "ABORTA: el arbol tiene cambios sin commitear en los archivos que este"
+        echo "script muta. Correr asi mezcla tus cambios con los mutantes y la"
+        echo "restauracion no puede distinguirlos."
+        echo "$SUCIO"
+        echo
+        echo "Commitea o guarda esos cambios y volve a correr. No se midio nada."
+        exit 2
+    fi
+    echo "arbol limpio en los archivos mutables: verificado con git status."
+else
+    echo "AVISO: no hay repo git accesible. El guard de arbol limpio queda NO MEDIDO"
+    echo "y la restauracion depende solo de la copia de respaldo."
+fi
+
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
 cp -r fase0 "$TMP/respaldo"
 
-restaurar() { rm -rf fase0; cp -r "$TMP/respaldo" fase0; }
+restaurar() {
+    rm -rf fase0
+    cp -r "$TMP/respaldo" fase0
+    # (b) segunda via: git manda sobre la copia para los archivos mutables.
+    if [ "$HAY_GIT" -eq 1 ]; then
+        git checkout -- "${ARCHIVOS_MUTABLES[@]}" 2>/dev/null || true
+    fi
+}
+
+# (c) el trap restaura y despues limpia. Antes solo limpiaba el temporal, asi que
+# una interrupcion dejaba el mutante vivo en el arbol.
+trap 'restaurar; rm -rf "$TMP"' EXIT INT TERM
 
 fallos=0
 cazadas=0
