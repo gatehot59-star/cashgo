@@ -30,8 +30,47 @@ from pydantic import ValidationError
 from . import config
 from .schemas import AnalisisAnuncio, AnuncioCrudo, LoteAnalizado, Rechazo
 
-# Firma: (modelo, mensajes, temperatura) -> texto crudo del assistant
-Completion = Callable[[str, list[dict[str, str]], float], str]
+
+@dataclass(frozen=True)
+class UsoTokens:
+    """
+    Consumo real reportado por el proveedor para una invocacion.
+
+    B4 (hallazgo del auditor externo, 2026-09-07): la version anterior descartaba
+    el campo `usage` de la respuesta, asi que la TASA DE ACIERTO DE CACHE nunca se
+    media. Y esa tasa es el parametro del que depende todo el modelo de costo: el
+    factor 4,4x y el margen del 96% se calculan suponiendo 95% de aciertos. Era el
+    defecto 5 ("supuesto tratado como medicion") aplicado a la variable mas
+    sensible del analisis economico, y estaba en el instrumento y no en la planilla.
+
+    `hit` y `miss` son None cuando el proveedor no los reporta. None NO es cero:
+    son los tres estados otra vez, y `ratio_hit` devuelve None en ese caso en vez
+    de inventar un 0,0 que se leeria como "el cache no funciono".
+    """
+
+    entrada: int | None = None
+    salida: int | None = None
+    hit: int | None = None
+    miss: int | None = None
+
+    @property
+    def ratio_hit(self) -> float | None:
+        if self.hit is None or self.miss is None:
+            return None
+        total = self.hit + self.miss
+        return self.hit / total if total else None
+
+
+@dataclass(frozen=True)
+class RespuestaModelo:
+    """Lo que devuelve una Completion: el texto crudo y, si existe, el uso."""
+
+    texto: str
+    uso: UsoTokens | None = None
+
+
+# Firma: (modelo, mensajes, temperatura) -> RespuestaModelo
+Completion = Callable[[str, list[dict[str, str]], float], RespuestaModelo]
 
 # ---------------------------------------------------------------------------
 # PREFIJO ESTABLE. No tocar sin actualizar PREFIJO_SHA256 y sin entender que
@@ -96,6 +135,11 @@ def formatear_anuncio(ad: AnuncioCrudo) -> str:
     sobre performance, que es justo lo que la Ad Library no da para anuncios
     comerciales) y NO va la snapshot_url (es una URL, y una URL en el contexto es
     una invitacion a que el modelo proponga visitarla).
+
+    B3: la seguridad de este formateo NO vive aca. Vive en `schemas.normalizar`,
+    que neutraliza la secuencia `<<<` en la frontera de ingesta. Ponerla aca
+    dejaria el texto sucio en la base y el problema se heredaria a cualquier
+    consumidor futuro.
     """
     copy = ad.texto_completo or "(sin copy)"
     plats = ", ".join(sorted(ad.plataformas)) or "desconocidas"
@@ -113,6 +157,7 @@ class ResultadoLote:
     analisis: list[AnalisisAnuncio] = field(default_factory=list)
     rechazos: list[Rechazo] = field(default_factory=list)
     tokens_prefijo: int = 0
+    uso: UsoTokens | None = None
 
     @property
     def tasa_rechazo(self) -> float:
@@ -155,7 +200,9 @@ class Analizador:
             return res
 
         mensajes = self.construir_mensajes(anuncios)
-        crudo = self._completion(self.modelo, mensajes, self.temperatura)
+        respuesta = self._completion(self.modelo, mensajes, self.temperatura)
+        crudo = respuesta.texto
+        res.uso = respuesta.uso
 
         datos = _cargar_json(crudo)
         if datos is None:
@@ -203,25 +250,50 @@ class Analizador:
     @staticmethod
     def _verificar_cobertura(anuncios: Sequence[AnuncioCrudo], res: ResultadoLote) -> None:
         """
-        Un ad_id devuelto que no estaba en la entrada es una alucinacion: se saca.
-        Un ad_id de la entrada que no volvio se registra como faltante.
+        Tres modos de falla de cobertura, y hay que distinguirlos porque se
+        arreglan distinto:
 
-        Los dos son estados distintos y hay que distinguirlos: uno es el modelo
-        inventando, el otro es el modelo omitiendo, y se arreglan distinto.
+          INVENTADO  el ad_id no estaba en la entrada -> se descarta
+          REPETIDO   el ad_id vuelve mas de una vez   -> gana el primero
+          OMITIDO    el ad_id de la entrada no vuelve -> se registra
+
+        B2 (hallazgo del auditor externo, 2026-09-07): la categoria REPETIDO no
+        existia. `pedidos` y `devueltos` eran sets, asi que dos analisis con el
+        mismo ad_id y clasificaciones distintas entraban los dos y ninguno se
+        registraba como problema.
+
+        REFUTACION PARCIAL DEL IMPACTO REPORTADO, MEDIDA: el auditor concluyo que
+        "el informe lo cuenta dos veces". Se corrio el pipeline completo con un
+        doble que duplica un ad_id: la suma de la distribucion de angulos fue 20
+        contra 20 anuncios de competencia, o sea que NO hay doble conteo. La razon
+        es que el pipeline reproyecta por content_hash y despues por ad_id sobre
+        diccionarios, y el ultimo gana. El defecto es real; su consecuencia es
+        otra y es mas silenciosa: **una de las dos clasificaciones se descartaba
+        sin registro y la tasa de rechazo quedaba subestimada**. Un modelo real
+        con temperatura > 0 produce este caso de forma ordinaria.
         """
         pedidos = {a.ad_id for a in anuncios}
-        devueltos = {a.ad_id for a in res.analisis}
 
-        inventados = [a for a in res.analisis if a.ad_id not in pedidos]
-        if inventados:
-            res.analisis[:] = [a for a in res.analisis if a.ad_id in pedidos]
-            for a in inventados:
+        admitidos: list[AnalisisAnuncio] = []
+        ya_visto: set[str] = set()
+        for a in res.analisis:
+            if a.ad_id not in pedidos:
                 res.rechazos.append(Rechazo(
                     ad_id=a.ad_id,
                     motivo="ad_id devuelto no estaba en la entrada (alucinado)",
                 ))
+                continue
+            if a.ad_id in ya_visto:
+                res.rechazos.append(Rechazo(
+                    ad_id=a.ad_id,
+                    motivo="ad_id repetido en la respuesta; gana la primera ocurrencia",
+                ))
+                continue
+            ya_visto.add(a.ad_id)
+            admitidos.append(a)
+        res.analisis[:] = admitidos
 
-        for faltante in sorted(pedidos - devueltos):
+        for faltante in sorted(pedidos - ya_visto):
             res.rechazos.append(Rechazo(ad_id=faltante, motivo="el modelo no devolvio este ad_id"))
 
 
@@ -258,22 +330,49 @@ def estimar_tokens(texto: str) -> int:
     return max(1, len(texto) // 4)
 
 
-def cliente_deepseek(api_key: str, base_url: str = "https://api.deepseek.com") -> Completion:
+class ErrorProveedorCognitivo(RuntimeError):
+    """Falla del proveedor del modelo. Tipada para que el llamador pueda decidir."""
+
+
+def cliente_deepseek(
+    api_key: str,
+    base_url: str = "https://api.deepseek.com",
+    *,
+    timeout: float = 180.0,
+    max_tokens: int = config.MAX_TOKENS_SALIDA,
+) -> Completion:
     """
     Cliente HTTP contra DeepSeek. Solo stdlib.
 
     NO SE EJECUTO CONTRA LA API REAL (declarado): el sandbox no tiene red. La
     forma del request sale de la doc (endpoint compatible con ChatCompletions de
-    OpenAI). La primera corrida real es verificacion PENDIENTE.
+    OpenAI). La primera corrida real es verificacion PENDIENTE (10.2).
+
+    B7 (hallazgo del auditor externo, 2026-09-07): tres fragilidades corregidas,
+    las tres del tipo que solo aparece en la primera corrida real:
+
+    1. Capturaba `HTTPError` y no `URLError` ni timeout. Un corte de red producia
+       una excepcion no tipada a mitad de corrida, con el corpus a medio procesar.
+       Ahora todo error de transporte sale como `ErrorProveedorCognitivo`.
+    2. `payload["choices"][0]["message"]["content"]` podia ser `None` (o la
+       estructura podia venir distinta) y eso reventaba con `TypeError` en vez de
+       degradar a un `Rechazo`. Ahora una respuesta con forma inesperada devuelve
+       texto vacio, que el validador convierte en rechazo registrado.
+    3. No fijaba `max_tokens`. Un lote de 40 anuncios a ~140 tokens de salida son
+       ~5.600 tokens mas el envoltorio JSON; si el tope por defecto del proveedor
+       fuera menor, el JSON llega truncado y **el lote entero** se pierde como
+       "no es JSON valido". Ahora se pide explicitamente y el valor sale de
+       `config.MAX_TOKENS_SALIDA`, calculado sobre el tamano del lote.
     """
     import urllib.error
     import urllib.request
 
-    def _c(modelo: str, mensajes: list[dict[str, str]], temperatura: float) -> str:
+    def _c(modelo: str, mensajes: list[dict[str, str]], temperatura: float) -> RespuestaModelo:
         cuerpo = json.dumps({
             "model": modelo,
             "messages": mensajes,
             "temperature": temperatura,
+            "max_tokens": max_tokens,
             "response_format": {"type": "json_object"},
             "stream": False,
         }).encode("utf-8")
@@ -287,10 +386,59 @@ def cliente_deepseek(api_key: str, base_url: str = "https://api.deepseek.com") -
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=180) as r:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
                 payload = json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            raise RuntimeError(f"DeepSeek HTTP {e.code}: {e.read()[:500]!r}") from e
-        return payload["choices"][0]["message"]["content"]
+            detalle = e.read()[:500]
+            raise ErrorProveedorCognitivo(f"HTTP {e.code}: {detalle!r}") from e
+        except urllib.error.URLError as e:      # incluye timeout y DNS
+            raise ErrorProveedorCognitivo(f"transporte: {e.reason!r}") from e
+        except (TimeoutError, OSError) as e:
+            raise ErrorProveedorCognitivo(f"socket: {e!r}") from e
+        except json.JSONDecodeError as e:
+            raise ErrorProveedorCognitivo(f"respuesta no es JSON: {e}") from e
+        return RespuestaModelo(texto=_texto_de(payload), uso=_uso_de(payload))
 
     return _c
+
+
+def _texto_de(payload: object) -> str:
+    """
+    Extrae el contenido del assistant tolerando cualquier forma inesperada.
+
+    Devuelve "" en vez de lanzar: un texto vacio se convierte en un `Rechazo`
+    registrado aguas arriba, que es una degradacion observable. Un `TypeError` a
+    mitad de corrida no lo es.
+    """
+    try:
+        contenido = payload["choices"][0]["message"]["content"]  # type: ignore[index]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    return contenido if isinstance(contenido, str) else ""
+
+
+def _uso_de(payload: object) -> UsoTokens | None:
+    """
+    Extrae el bloque `usage`. Los nombres de los campos de cache varian entre
+    proveedores y entre versiones, asi que se prueban los alias conocidos y, si
+    ninguno esta, se devuelve None (NO cero: seria afirmar que no hubo aciertos).
+    """
+    if not isinstance(payload, dict):
+        return None
+    u = payload.get("usage")
+    if not isinstance(u, dict):
+        return None
+
+    def _num(*claves: str) -> int | None:
+        for k in claves:
+            v = u.get(k)
+            if isinstance(v, int):
+                return v
+        return None
+
+    return UsoTokens(
+        entrada=_num("prompt_tokens", "input_tokens"),
+        salida=_num("completion_tokens", "output_tokens"),
+        hit=_num("prompt_cache_hit_tokens", "cache_read_input_tokens", "cached_tokens"),
+        miss=_num("prompt_cache_miss_tokens", "cache_miss_input_tokens"),
+    )

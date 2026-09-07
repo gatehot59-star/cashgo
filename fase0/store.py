@@ -51,6 +51,22 @@ CREATE TABLE IF NOT EXISTS analisis (
     creado_en    TEXT NOT NULL
 );
 
+-- B4 / D2: consumo real reportado por el proveedor, por lote. Es la tabla que
+-- convierte la tasa de acierto de cache de supuesto (0,95 en el modelo de costo)
+-- en una medicion. Sin esto, el parametro mas sensible de la seccion 6 del
+-- informe de auditoria no tiene instrumento.
+CREATE TABLE IF NOT EXISTS uso_tokens (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    creado_en     TEXT NOT NULL,
+    modelo        TEXT NOT NULL,
+    lote          INTEGER NOT NULL,
+    anuncios      INTEGER NOT NULL,
+    tok_entrada   INTEGER,
+    tok_salida    INTEGER,
+    tok_cache_hit  INTEGER,
+    tok_cache_miss INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS corridas (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     creado_en TEXT NOT NULL,
@@ -171,6 +187,50 @@ class Store:
             ids,
         ).fetchall()
         return {f["content_hash"]: dict(f) for f in filas}
+
+    # -- uso de tokens ------------------------------------------------------
+    def guardar_uso(
+        self,
+        *,
+        modelo: str,
+        lote: int,
+        anuncios: int,
+        entrada: int | None,
+        salida: int | None,
+        hit: int | None,
+        miss: int | None,
+    ) -> None:
+        """
+        Registra el consumo de un lote. Los None se guardan como NULL a proposito:
+        NULL significa "el proveedor no lo reporto", que no es lo mismo que 0.
+        """
+        self._con.execute(
+            """INSERT INTO uso_tokens
+               (creado_en, modelo, lote, anuncios, tok_entrada, tok_salida,
+                tok_cache_hit, tok_cache_miss)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (_ahora(), modelo, lote, anuncios, entrada, salida, hit, miss),
+        )
+        self._con.commit()
+
+    def uso_acumulado(self) -> dict[str, int | None]:
+        """
+        Suma el uso de todos los lotes. Devuelve None en un campo si NINGUN lote lo
+        reporto, en vez de 0: la distincion entre "cero aciertos" y "el proveedor
+        no informa aciertos" es la que decide si el supuesto del modelo de costo
+        esta medido o no.
+        """
+        fila = self._con.execute(
+            """SELECT SUM(tok_entrada) e, SUM(tok_salida) s,
+                      SUM(tok_cache_hit) h, SUM(tok_cache_miss) m,
+                      COUNT(tok_cache_hit) nh
+               FROM uso_tokens"""
+        ).fetchone()
+        return {
+            "entrada": fila["e"], "salida": fila["s"],
+            "hit": fila["h"] if fila["nh"] else None,
+            "miss": fila["m"] if fila["nh"] else None,
+        }
 
     # -- audit log ----------------------------------------------------------
     def log(self, evento: str, payload: dict[str, object]) -> None:

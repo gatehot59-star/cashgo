@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from fase0.adlibrary import RateLimitError, Transport
+from fase0.cognitive import RespuestaModelo, UsoTokens
 from fase0.schemas import AnuncioCrudo
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
@@ -59,18 +60,18 @@ def transporte_que_falla(veces: int, luego: dict[str, Any]) -> Transport:
     return _t
 
 
-def completion_fija(texto: str):
+def completion_fija(texto: str, uso: UsoTokens | None = None):
     """Completion que siempre devuelve el mismo texto crudo."""
-    def _c(_m: str, _msgs: list[dict[str, str]], _t: float) -> str:
-        return texto
+    def _c(_m: str, _msgs: list[dict[str, str]], _t: float) -> RespuestaModelo:
+        return RespuestaModelo(texto=texto, uso=uso)
     return _c
 
 
 def completion_capturadora(texto: str, buzon: list[list[dict[str, str]]]):
     """Como completion_fija, pero guarda los mensajes que recibio."""
-    def _c(_m: str, msgs: list[dict[str, str]], _t: float) -> str:
+    def _c(_m: str, msgs: list[dict[str, str]], _t: float) -> RespuestaModelo:
         buzon.append(msgs)
-        return texto
+        return RespuestaModelo(texto=texto)
     return _c
 
 
