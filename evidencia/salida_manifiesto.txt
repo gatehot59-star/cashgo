@@ -1,20 +1,7 @@
 # EVIDENCIA CRUDA - VERBATIM (W-01)
-# Instrumento: python3 scripts/manifiesto.py --verificar - Fecha: 2026-09-07
-# Para que: cierra A1. 'Canonizado' pasa de declaracion a propiedad verificable.
+# Instrumento: python3 scripts/manifiesto.py --escribir
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
 #
-# NOTA DE AUTORREFERENCIA: este archivo esta EXCLUIDO del manifiesto, y esa
-# exclusion esta declarada en el codigo con su motivo. Escribirlo cambia su
-# hash, asi que si estuviera cubierto el manifiesto no podria verificarse a si
-# mismo. Lo detecte corriendo el control positivo: daba '2 distinto(s)' y
-# 'exit restaurado = 1' siempre, o sea un guard que no podia dar verde.
-# Es el DEFECTO 13 del registro del informe.
-#
-escritas 16 entradas en evidencia/MANIFEST.sha256
-GUARD VERDE: las 16 entradas del manifiesto coinciden con el arbol.
-EXIT=0
-
-# --- CONTROL POSITIVO: se agrega un byte a evidencia/inventario.csv ---
-GUARD ROJO: 1 distinto(s), 0 faltante(s), 0 sin firma. El manifiesto no describe este arbol.
-  DIFIERE   evidencia/inventario.csv
-exit con un byte cambiado = 1  (tiene que ser 1)
-exit restaurado           = 0  (tiene que ser 0)
+escritas 18 entradas en evidencia/MANIFEST.sha256

@@ -1,5 +1,8 @@
 # EVIDENCIA CRUDA - VERBATIM (W-01)
-# Instrumento: python -m fase0.pipeline ... --dry-run ... --pdf - Fecha: 2026-09-07
+# Instrumento: python3 -m fase0.pipeline ... --dry-run ... --pdf
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
 #
 ========================================================================
 AUDITORIA GENERADA - Mi Tienda DTC
@@ -17,29 +20,5 @@ AUDITORIA GENERADA - Mi Tienda DTC
   prefijo sha256 .................. e3f52a1fbe89b0ce...
   cache de contexto ............... NO MEDIDO (el proveedor no reporto tokens de cache)
   angulos sin explotar ............      5 ['educativo', 'garantia', 'comparacion', 'precio', 'prueba_social']
-  HTML ............................ /tmp/aud/auditoria-mi-tienda-dtc.html
-  PDF ............................. /tmp/aud/auditoria-mi-tienda-dtc.pdf
-EXIT=0
-
-# --- el PDF resultante, medido con pypdf ---
-paginas: 4
-bytes  : 23261
-caracteres de texto extraidos: 4474
-contiene "Digital Services Act": True
-contiene "malicioso.example"  : False (tiene que ser False)
-contiene "[enlace]"           : True
-
-# ---------------------------------------------------------------------------
-# LA LINEA NUEVA DE ESTA CORRIDA, Y POR QUE IMPORTA (B4):
-#
-#   cache de contexto ... NO MEDIDO (el proveedor no reporto tokens de cache)
-#
-# Antes esa linea NO EXISTIA, y el 95% de aciertos que sostiene el factor 4,4x y
-# el margen de 96,28% de la seccion 6 del informe se daba por supuesto. Ahora hay
-# instrumento, y el instrumento dice la verdad: el clasificador del --dry-run no
-# es un proveedor y no puede inventar un consumo de tokens.
-#
-# Contra el proveedor real la misma linea dira VERDE o ROJO contra
-# config.UMBRAL_CACHE_HIT = 0,80. Hasta entonces, el parametro mas sensible del
-# analisis economico esta instrumentado pero NO MEDIDO (10.2 y 10.11).
-# ---------------------------------------------------------------------------
+  HTML ............................ artefactos/auditoria-mi-tienda-dtc.html
+  PDF ............................. artefactos/auditoria-mi-tienda-dtc.pdf

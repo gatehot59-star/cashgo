@@ -1,8 +1,10 @@
 # EVIDENCIA CRUDA - VERBATIM (W-01)
 # Instrumento: bash scripts/control_positivo_suite.sh
-# Que prueba: que la suite puede dar rojo, Y que da rojo POR EL TEST CORRECTO.
-# Corrido por: BRAIN en su sandbox (Python 3.12.13) - Fecha: 2026-09-07
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
 #
+arbol limpio en los archivos mutables: verificado con git status.
 ==============================================================================
 CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por azar
 ==============================================================================
@@ -23,4 +25,3 @@ CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por azar
 ------------------------------------------------------------------------------
 VERDE: 7/7 mutaciones cazadas por su test especifico.
 Y el arbol restaurado sigue en verde.
-EXIT=0
