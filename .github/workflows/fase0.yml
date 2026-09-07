@@ -1,48 +1,27 @@
 name: fase0
 
+# Un job por PREGUNTA. El razonamiento completo de cada particion, con sus
+# mediciones y su deuda, esta en 02-INFORME-PARA-AUDITORIA.md seccion 5.4.
+# Aca va solo lo que necesita quien viene a MODIFICAR este archivo.
+#
+#   custodia    los recibos describen este arbol?   documental
+#   suite       el codigo funciona?                 funcional, sin red
+#   deps-pins   CVEs en nuestros 3 pines?           seguridad, dueno claro
+#   deps-arbol  CVEs en el arbol transitivo?        seguridad, no lo controlamos
+#   secretos    credenciales en el historial?       seguridad, determinista
+#
+# REGLA DE ESTE ARCHIVO: un job = una pregunta. Se llego aca tres veces por el
+# mismo camino: un job que agrupa dos preguntas devuelve media respuesta, y para
+# la otra mitad hay que abrir el log. Abrir el log no es un instrumento.
+#
+# PROHIBIDO `continue-on-error` en los tres de seguridad. Un paso que no puede
+# hacer fallar el job no es un control: es un adorno con forma de control.
+
 on:
   push:
     branches: ["main", "titan/**"]
   pull_request:
     branches: ["main"]
-
-# D2 (hallazgo del auditor externo, 2026-09-07): antes esto era UN job secuencial,
-# y el paso de custodia (inventario + diff del CSV) estaba ANTES de la suite. En el
-# head de13b9a6 un CSV desactualizado por una linea puso todo en rojo y dejo la
-# suite, el control positivo, el pipeline y los modelos en `skipped`: un defecto
-# DOCUMENTAL ciego la verificacion del CODIGO entero, y durante horas no se supo si
-# las ocho correcciones B1-B8 funcionaban.
-#
-# Ahora hay un job por PREGUNTA:
-#   custodia    -> los recibos describen este arbol?  (documental)
-#   suite       -> el codigo funciona?                (funcional)
-#   deps-pins   -> hay CVEs en LO QUE PINNEAMOS?      (seguridad, nuestra culpa)
-#   deps-arbol  -> hay CVEs en el arbol transitivo?   (seguridad, no lo controlamos)
-#   secretos    -> hay credenciales en el historial?  (seguridad, determinista)
-#
-# Y LOS DE DEPENDENCIAS SE PARTIERON EN DOS POR LA MISMA RAZON, UNA VUELTA MAS:
-# `dependencias` dio failure y el veredicto no decia si el CVE estaba en un paquete
-# que NOSOTROS pinneamos o en uno que arrastra la cadena. Son dos problemas con dos
-# arreglos distintos: el primero se arregla subiendo un pin nuestro; el segundo se
-# arregla pinneando algo que hoy flota, o esperando al upstream. Un solo veredicto
-# para los dos obliga a abrir el log, y abrir el log no es un instrumento: es un
-# humano leyendo.
-#
-# Y ESA PARTICION PAGO EN LA PRIMERA CORRIDA: fallaron LOS DOS, incluido el que solo
-# mira nuestros tres pines. Eso descarto "hay un CVE en un paquete nuestro" sin leer
-# un log, y mando a buscar en el entorno, que es donde estaba (ver deps-pins).
-#
-# LOS DOS DE SEGURIDAD ESTABAN EN UN SOLO JOB Y DURO UNA CORRIDA. Dio `failure` y
-# el veredicto no decia CUAL de los dos habia fallado: para saberlo hacia falta
-# abrir el log, o peor, adivinar. Es el MISMO defecto que llevo a partir el job
-# original (D2), una capa mas abajo y cometido por mi doce minutos despues de
-# corregirlo arriba. Un job que agrupa dos preguntas devuelve media respuesta.
-#
-# Ahora cada control tiene su job, y ademas son de naturaleza distinta, que es la
-# razon de fondo para no mezclarlos: los de dependencias consultan una base de datos
-# viva y pueden ponerse rojo manana sin que nadie toque una linea; `secretos` es
-# determinista sobre un historial dado. Confundir esos dos rojos es confundir
-# "aparecio un CVE" con "alguien filtro una credencial".
 
 jobs:
   custodia:
@@ -50,79 +29,53 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      # Sin dependencias: los tres instrumentos de custodia son stdlib pura. Eso
-      # es deliberado, asi un fallo de custodia nunca puede ser un fallo de pip.
-      - name: Inventario estructural (guard propio)
-        run: python3 scripts/inventario.py
+      # stdlib pura y sin pip a proposito: un fallo de custodia nunca puede ser
+      # un fallo de instalacion de dependencias.
+      - run: python3 scripts/inventario.py
 
-      # D1: `--csv` ahora manda los mensajes de guard a stderr, asi que stdout es
-      # un CSV valido y el diff compara CSV contra CSV. Antes los dos lados
-      # traian la linea "GUARD VERDE" adentro del CSV y el diff pasaba igual:
-      # un guard que compara dos copias del mismo error.
-      - name: Diff del inventario contra la evidencia commiteada
-        run: python3 scripts/inventario.py --csv | diff -u evidencia/inventario.csv -
+      # `--csv` manda el guard a stderr, asi que esto compara CSV contra CSV.
+      - run: python3 scripts/inventario.py --csv | diff -u evidencia/inventario.csv -
 
-      # Cierra "informe != CSV" por construccion: la fila TOTAL del dossier tiene
-      # que salir del CSV, no de los dedos de quien lo escribio.
-      - name: La tabla del informe sale del CSV
-        run: python3 scripts/informe_vs_csv.py
-
-      # "Canonizado" como propiedad verificable y no como declaracion.
-      - name: Manifiesto de evidencia
-        run: python3 scripts/manifiesto.py --verificar
+      - run: python3 scripts/informe_vs_csv.py
+      - run: python3 scripts/manifiesto.py --verificar
 
   suite:
     name: suite (el codigo funciona)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      # WeasyPrint necesita las libs nativas de Pango/Cairo. Sin esto el import
-      # falla con un error de ctypes que no menciona a WeasyPrint y se pierden
-      # veinte minutos buscando en el lugar equivocado.
-      - name: Dependencias nativas de WeasyPrint
-        run: |
+      # WeasyPrint necesita Pango/Cairo nativos. Sin esto el import falla con un
+      # error de ctypes que no lo menciona.
+      - run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libffi8 fonts-dejavu-core
 
-      - name: Dependencias de Python
-        run: |
+      - run: |
           python -m pip install --upgrade pip
           pip install -r fase0/requirements.txt
 
-      - name: Generar fixtures (datos de prueba como codigo)
-        run: python -m fase0.fixtures.generar
+      - run: python -m fase0.fixtures.generar
 
-      # Ninguna de las dos tandas toca la red: el pipeline corre contra fixture y
-      # el modelo se reemplaza por un clasificador de reglas. Es la propiedad que
-      # hace que este CI sea util en un fork y en un PR de alguien de afuera.
-      - name: Suite (128 tests, sin red)
-        run: python -m unittest discover -s fase0/tests -t . -v
+      # Nada de esto toca la red: fixture + clasificador por reglas. Por eso
+      # corre en un fork y en un PR de afuera.
+      - run: python -m unittest discover -s fase0/tests -t . -v
+      - run: bash scripts/control_positivo_suite.sh
 
-      # D3: el script se niega a arrancar si el arbol esta sucio en los archivos
-      # que muta. En el runner el checkout esta limpio y los fixtures generados
-      # arriba estan en .gitignore, asi que este guard no puede dar falso rojo.
-      - name: Control positivo (7 mutaciones, cada una por su test)
-        run: bash scripts/control_positivo_suite.sh
-
-      - name: Pipeline end to end + PDF
-        run: |
+      - run: |
           python -m fase0.pipeline fase0/fixtures/brief_ejemplo.json \
             --dry-run fase0/fixtures/ads_archive_sample.json \
             --salida artefactos --pdf
 
-      - name: Modelo de costo y reconciliacion del prefijo
-        run: |
+      - run: |
           python scripts/modelo_costo_arq3.py
           python scripts/sensibilidad_infra_y_equipo.py
 
@@ -137,43 +90,18 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      # `--no-deps` audita EXACTAMENTE los tres paquetes de requirements.txt y nada
-      # mas. Es lo que esta bajo nuestro control directo, y por eso su rojo tiene un
-      # dueno claro: subir un pin nuestro.
+      # `--no-deps` audita EXACTAMENTE los 3 pines de requirements.txt. Su rojo
+      # tiene dueno: subir un pin nuestro.
       #
-      # MEDICION PREVIA (2026-09-07, en vivo contra OSV/GHSA):
-      #   pydantic 2.13.4 .... sin vulnerabilidades conocidas
-      #   weasyprint 69.0 .... es LA VERSION QUE ARREGLA CVE-2026-49452
-      #   pypdf 6.14.2 ....... es LA VERSION QUE ARREGLA CVE-2026-59935
-      #
-      # POR QUE HAY UN `--upgrade pip` ACA, y es una hipotesis que confirma o falsa
-      # el propio CI: en la corrida de d0213f9 fallaron LOS DOS jobs de
-      # dependencias, incluido este que solo mira los tres pines de arriba. Que
-      # fallen los dos descarta el CVE en un paquete puntual y apunta al entorno.
-      #
-      # Mecanismo: `actions/setup-python@v6` NO instala el pip de PyPI, usa el que
-      # quedo horneado en el toolchain (pip 26.0.1 para Python 3.12), y ese pip
-      # tiene CVE-2026-3219, arreglado en 26.1. pip-audit audita el pip del entorno
-      # donde corre, asi que el rojo lo produce el pip DEL RUNNER, no nuestras
-      # dependencias.
-      #
-      # La evidencia que hace fuerte la hipotesis estaba en este mismo archivo: el
-      # job `suite` hace `python -m pip install --upgrade pip` y pasa; estos dos no
-      # lo hacian y fallan. La unica diferencia relevante entre los tres es esa
-      # linea. La respuesta estaba en el archivo, no en una corrida nueva.
-      #
-      # DEUDA DECLARADA para que el parche no sobreviva a su motivo: este `--upgrade`
-      # existe por el retraso de la imagen del runner, no por diseno. Cuando
-      # setup-python traiga pip >= 26.1 nativo, la linea se saca. Alternativa mas
-      # determinista y descartada por ahora: `pip-version: "26.1"` en setup-python,
-      # que pinnea a mano algo que el runner deberia resolver solo.
-      - name: pip-audit solo sobre los tres pines propios
-        run: |
+      # `--upgrade pip` NO es cosmetico: setup-python usa el pip horneado en el
+      # toolchain, no el de PyPI. Se probo como hipotesis del rojo y NO alcanzo
+      # (ver 5.4): el rojo de este job sigue sin diagnosticar y hace falta leer
+      # el log. Hasta entonces su causa es NO MEDIDA, no supuesta.
+      - run: |
           python -m pip install --upgrade pip
           pip install pip-audit
           pip-audit -r fase0/requirements.txt --no-deps --strict
@@ -183,31 +111,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      # Sin `--no-deps`: audita el ARBOL COMPLETO. weasyprint arrastra Pillow,
-      # tinycss2, cssselect2, pyphen, fonttools, pydyf y cffi; pydantic arrastra
-      # pydantic-core, annotated-types y typing-extensions. NINGUNO de esos esta
-      # pinneado en requirements.txt.
-      #
-      # ESE ES EL HALLAZGO QUE ESTE JOB DESNUDA, Y ES MIO: el informe dice "pins
-      # exactos, nada de rangos" y eso es cierto de las TRES dependencias directas.
-      # El resto del arbol FLOTA. Verifique tres paquetes y hable como si hubiera
-      # verificado el conjunto: E-01, medir el sujeto chico y concluir sobre el
-      # grande. Este job mide el conjunto.
-      #
-      # Se separa de deps-pins porque su rojo NO se arregla igual: no hay un pin
-      # nuestro que subir, hay que decidir si se pinnea algo que hoy flota (y
-      # asumir el mantenimiento) o si se espera al upstream.
-      #
-      # El `--upgrade pip` esta por el mismo motivo que en deps-pins: el pip
-      # horneado en el toolchain del runner (26.0.1) tiene CVE-2026-3219 y lo
-      # reporta pip-audit. Ver el comentario largo de deps-pins, con su deuda.
-      - name: pip-audit sobre el arbol completo
-        run: |
+      # Sin `--no-deps`: el arbol completo. weasyprint arrastra Pillow, tinycss2,
+      # cssselect2, pyphen, fonttools, pydyf y cffi; pydantic arrastra
+      # pydantic-core, annotated-types y typing-extensions, y NINGUNO esta
+      # pinneado. El informe dice "pins exactos" y eso vale para los 3 directos:
+      # el resto flota. Su rojo NO se arregla como el de deps-pins.
+      - run: |
           python -m pip install --upgrade pip
           pip install pip-audit
           pip-audit -r fase0/requirements.txt --strict
@@ -216,28 +129,14 @@ jobs:
     name: secretos (historial completo) - BLOQUEANTE
     runs-on: ubuntu-24.04
     steps:
-      # fetch-depth 0 NO es opcional: con la profundidad por defecto (1) el escaneo
-      # solo ve el arbol del ultimo commit, asi que un secreto commiteado y borrado
-      # despues sigue vivo en el historial y el escaneo lo da por limpio.
-      # Un secreto filtrado NO se desfiltra: hay que buscarlo donde quedo.
+      # fetch-depth 0 NO es opcional: con profundidad 1 un secreto commiteado y
+      # borrado despues sigue vivo en el historial y el escaneo lo da por limpio.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      # Sin `continue-on-error`: este paso ES un porton.
-      #
-      # MEDICION PREVIA (2026-09-07): escaneo propio con 13 reglas de alta senal de
-      # gitleaks (PAT de GitHub clasico y fine-grained, tokens de app/OAuth, AWS,
-      # OpenAI, Slack, Google, Stripe, bloques de clave privada, JWT, token de Meta
-      # y asignacion generica de api_key/secret/token/password) sobre los 44
-      # archivos del ARBOL: cero hallazgos. Con control positivo: un canario
-      # `sk-...` de 32 caracteres fue cazado por dos reglas, asi que el escaneo era
-      # falsable y no un adorno.
-      #
-      # LIMITE de esa medicion, y la razon de este paso: cubrio el ARBOL, no el
-      # HISTORIAL. Este paso es el unico que mira los 30 commits, y ya dio VERDE
-      # dos corridas seguidas: eso cierra el ultimo tramo del NO MEDIDO 11.
-      - name: gitleaks sobre los 30 commits
-        uses: gitleaks/gitleaks-action@v2
+      # VERDE ajeno en tres corridas seguidas sobre los 30 commits. Es el unico
+      # control de este repo que mira el historial y no el arbol.
+      - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
