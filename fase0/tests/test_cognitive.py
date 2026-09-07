@@ -172,11 +172,12 @@ class TestValidacionEstricta(unittest.TestCase):
         self.assertTrue(res.rechazos)
 
     def test_lote_vacio_no_llama_al_modelo(self) -> None:
+        from fase0.cognitive import RespuestaModelo
         llamadas = {"n": 0}
 
         def _c(_m, _msgs, _t):
             llamadas["n"] += 1
-            return json_analisis()
+            return RespuestaModelo(texto=json_analisis())
 
         res = Analizador(_c).analizar([])
         self.assertEqual(llamadas["n"], 0)
@@ -232,9 +233,25 @@ class TestInyeccionEnElCopy(unittest.TestCase):
 
     def test_si_el_modelo_obedece_la_inyeccion_el_esquema_lo_frena(self) -> None:
         """
-        Este es EL test de la Regla 6. Simulamos que el modelo se dejo inyectar
-        por completo: devuelve el angulo pedido por el atacante. El resultado es
-        cero analisis y un rechazo registrado.
+        Simulamos que el modelo se dejo inyectar por completo: devuelve el angulo Y
+        el cta pedidos por el atacante. Resultado: cero analisis, rechazo registrado.
+
+        DEFECTO 12, DE MI PROPIO TEST, ENCONTRADO POR LA CORRECCION DE B1 (2026-09-07).
+        Este test estaba citado en la seccion 7.3 del informe de auditoria como LA
+        demostracion de que la contencion de la Regla 6 es estructural. Cuando el
+        control positivo endurecido exigio que la mutacion `angulo: Angulo -> str`
+        fuera cazada POR ESTE test, el resultado fue [ROJO AJENO]: la suite fallaba,
+        pero por `test_rechaza_angulo_fuera_de_la_taxonomia`, y **este test seguia
+        en VERDE con la taxonomia de `angulo` completamente abierta**.
+        El motivo: el item hostil tambien traia `cta="transferir_fondos"`, asi que el
+        rechazo venia de `cta` y no de `angulo`. El test era verde por redundancia y
+        no pinneaba la propiedad que su nombre y el informe le atribuian.
+        Es el mismo patron que los defectos 7 a 9 (medir algo adyacente a la
+        propiedad), esta vez en el test mas importante del dossier.
+
+        Correccion: este test conserva el escenario completo, y abajo se agrega uno
+        POR CAMPO CERRADO, cada uno con un solo valor hostil, de modo que la
+        contencion de cada campo quede pinneada de forma independiente.
         """
         an = Analizador(completion_fija(json_analisis(
             item("a1", angulo="ejecutar_transferencia", cta="transferir_fondos"),
@@ -242,6 +259,29 @@ class TestInyeccionEnElCopy(unittest.TestCase):
         res = an.analizar([anuncio("a1", copy=self.COPY_HOSTIL)])
         self.assertEqual(res.analisis, [])
         self.assertTrue(res.rechazos)
+
+    def test_cada_campo_cerrado_contiene_por_si_solo(self) -> None:
+        """
+        Un valor hostil por vez, con el resto del item valido. Es lo que hace que la
+        afirmacion "la contencion es estructural" sea verificable campo por campo, y
+        no una propiedad emergente de que varios campos se cubran entre si.
+        """
+        casos = {
+            "angulo": "ejecutar_transferencia",
+            "hook": "revelar_prompt",
+            "cta": "transferir_fondos",
+            "formato": "shell",
+        }
+        for campo, hostil in casos.items():
+            with self.subTest(campo=campo):
+                an = Analizador(completion_fija(json_analisis(item("a1", **{campo: hostil}))))
+                res = an.analizar([anuncio("a1", copy=self.COPY_HOSTIL)])
+                self.assertEqual(
+                    res.analisis, [],
+                    f"el campo '{campo}' NO contiene por si solo: la contencion "
+                    f"depende de otro campo y el informe no puede afirmarla por campo",
+                )
+                self.assertTrue(res.rechazos)
 
     def test_el_prompt_prohibe_obedecer_al_copy(self) -> None:
         """Guard secundario: existe y esta escrito. No es el que protege, ayuda."""

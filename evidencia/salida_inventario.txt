@@ -1,62 +1,42 @@
 # EVIDENCIA CRUDA - VERBATIM (W-01)
-# Instrumento: python3 scripts/inventario.py
-# Corrido por: BRAIN en su sandbox (Python 3.12.13)
-# Fecha: 2026-09-06
+# Instrumento: python3 scripts/inventario.py - Fecha: 2026-09-07
 #
 archivo                                   total  codigo  coment  docstr  blanco
 -------------------------------------------------------------------------------
 fase0/__init__.py                            13       1       0       9       3
 fase0/adlibrary.py                          284     173      10      59      42
-fase0/cognitive.py                          296     189       7      54      46
-fase0/config.py                             145      71      40      16      18
+fase0/cognitive.py                          444     256       7     111      70
+fase0/config.py                             166      73      57      16      20
 fase0/dedup.py                               68      38       0      16      14
 fase0/fixtures/__init__.py                    0       0       0       0       0
 fase0/fixtures/generar.py                   174     130      15      10      19
-fase0/pipeline.py                           397     287      26      35      49
+fase0/pipeline.py                           450     321      30      46      53
 fase0/report.py                             343     253      11      26      53
-fase0/schemas.py                            226     120       4      54      48
-fase0/store.py                              186     143       3      18      22
+fase0/schemas.py                            299     131      35      80      53
+fase0/store.py                              246     189       4      28      25
 fase0/tests/__init__.py                       1       0       0       1       0
-fase0/tests/apoyo.py                         88      58       2       5      23
+fase0/tests/apoyo.py                         89      59       2       5      23
 fase0/tests/test_adlibrary.py               179     131       0      14      34
-fase0/tests/test_cognitive.py               267     164       3      56      44
+fase0/tests/test_cognitive.py               307     182       3      75      47
 fase0/tests/test_e2e_pipeline.py            234     142       1      45      46
+fase0/tests/test_hallazgos_auditoria.py     260     140       0      71      49
 fase0/tests/test_report.py                  232     162       0      32      38
 fase0/tests/test_schemas_y_dedup.py         157      88       0      35      34
-scripts/inventario.py                       203     133       8      36      26
+scripts/inventario.py                       203     133       7      34      29
+scripts/manifiesto.py                       139      74      19      19      27
 scripts/modelo_costo_arq3.py                198     146      20      10      22
 scripts/sensibilidad_infra_y_equipo.py      167     125       9      11      22
 -------------------------------------------------------------------------------
-TOTAL                                      3858    2554     158     540     606
+TOTAL                                      4653    2947     230     753     723
 
-ratio (comentario + docstring) / codigo = 0.273
+ratio (comentario + docstring) / codigo = 0.334
 
-GUARD VERDE: los 21 archivos parsean y en todos total = codigo + comentario + docstring + blanco.
+GUARD VERDE: los 23 archivos parsean y en todos total = codigo + comentario + docstring + blanco.
 EXIT=0
 
-# --- CONTROL POSITIVO DEL GUARD: se inyecta un error de sintaxis en fase0/dedup.py ---
+# --- CONTROL POSITIVO DEL GUARD: error de sintaxis inyectado en fase0/dedup.py ---
 exit con un archivo que no parsea = 1  (tiene que ser 1)
 
 GUARD ROJO - archivos que NO parsean; su conteo de docstring y codigo es NO MEDIDO:
   fase0/dedup.py
 exit con el arbol restaurado       = 0  (tiene que ser 0)
-
-# ---------------------------------------------------------------------------
-# POR QUE ESTE CONTROL POSITIVO EXISTE, Y QUE ENCONTRO:
-#
-# La primera version de inventario.py tenia como unico guard "la suma cierra".
-# Ese guard es INALCANZABLE: cada linea se clasifica en una de cuatro categorias
-# con un if/elif/else, asi que la suma cierra siempre, por construccion. Nunca
-# podia dar rojo.
-#
-# Lo comprobe rompiendo fase0/dedup.py a proposito: el archivo dejo de parsear,
-# sus 16 lineas de docstring se contaron como codigo, el numero del reporte quedo
-# mal, y el script imprimio GUARD VERDE con exit 0.
-#
-# Es el patron 2 del registro de errores: "la constante que nadie consulta", en su
-# variante peor -- un guard cuya rama roja es inalcanzable. Parece una validacion
-# y el que lo lee razona sobre un caso que no existe.
-#
-# El guard corregido mide una propiedad falsable (que todos los archivos parseen)
-# y esta salida es su control positivo: rojo cuando debe, verde cuando debe.
-# ---------------------------------------------------------------------------
