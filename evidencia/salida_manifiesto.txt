@@ -4,4 +4,4 @@
 # Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
 # Generado por: bash scripts/cerrar.sh --regenerar
 #
-escritas 18 entradas en evidencia/MANIFEST.sha256
+escritas 19 entradas en evidencia/MANIFEST.sha256
