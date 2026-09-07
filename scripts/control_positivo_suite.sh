@@ -20,7 +20,7 @@
 #    propiedad. Medido: con un `import modulo_inexistente` en schemas.py la suite
 #    daba exit 1 con 5 ModuleNotFoundError y cero tests ejecutados.
 #
-#    Correccion, dos condiciones NUEVAS y necesarias para declarar [CAZADA]:
+#    Correccion, dos condiciones NUEVAS y necesarias para declarar [CAZADO]:
 #      a) el archivo mutado tiene que COMPILAR (py_compile). Una mutacion que no
 #         compila no prueba nada sobre la suite.
 #      b) el NOMBRE DEL TEST ESPERADO tiene que aparecer en la salida de unittest
@@ -29,6 +29,12 @@
 # 3. Y la condicion (b) encontro el DEFECTO 12 en la primera corrida: la mutacion
 #    de `angulo` devolvio [ROJO AJENO], porque el test que el informe citaba como
 #    prueba de la contencion estructural pasaba en VERDE con la taxonomia abierta.
+#
+# 4. DEFECTO 17 (2026-09-07): este script quedo divergiendo entre el arbol de
+#    trabajo y git, junto con otros cinco archivos, porque los edite DESPUES de
+#    pushearlos. Lo cazo el CI, no yo. Y el intento de reproducir el delta byte a
+#    byte a mano fallo seis veces, que es exactamente la razon por la que la
+#    convergencia no puede depender del cuidado del autor: depende del guard.
 #
 # Uso: bash scripts/control_positivo_suite.sh
 # Exit 0 = todas las mutaciones detectadas por el test correcto.
