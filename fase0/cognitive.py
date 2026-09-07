@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
@@ -125,6 +126,10 @@ EJEMPLO DE SALIDA
 
 PREFIJO_SHA256 = hashlib.sha256(PREFIJO_ESTABLE.encode("utf-8")).hexdigest()
 
+# Un solo patron para el envoltorio de markdown, en una operacion. Ver H-02 en
+# `_cargar_json`: dos operaciones donde la segunda no alcanzaba a la primera.
+_FENCE = re.compile(r"^\s*```[ \t]*[A-Za-z0-9_+-]*[ \t]*\r?\n?|```\s*$")
+
 
 def formatear_anuncio(ad: AnuncioCrudo) -> str:
     """
@@ -140,6 +145,10 @@ def formatear_anuncio(ad: AnuncioCrudo) -> str:
     que neutraliza la secuencia `<<<` en la frontera de ingesta. Ponerla aca
     dejaria el texto sucio en la base y el problema se heredaria a cualquier
     consumidor futuro.
+
+    H-01: y por eso mismo importa QUE campos cubre esa frontera. Esta funcion
+    interpola TRES valores (`ad_id`, `plataformas` y el copy), y hasta el
+    2026-09-07 solo el copy tenia validador. Los tres lo tienen ahora.
     """
     copy = ad.texto_completo or "(sin copy)"
     plats = ", ".join(sorted(ad.plataformas)) or "desconocidas"
@@ -271,6 +280,14 @@ class Analizador:
         otra y es mas silenciosa: **una de las dos clasificaciones se descartaba
         sin registro y la tasa de rechazo quedaba subestimada**. Un modelo real
         con temperatura > 0 produce este caso de forma ordinaria.
+
+        H-01 (auditoria independiente, 2026-09-07): y hay una interaccion incomoda
+        entre esta regla y ese hallazgo. Cuando un `ad_id` hostil fabricaba un
+        bloque atribuido a un competidor del mismo lote, el bloque falso quedaba
+        PRIMERO, asi que "gana la primera ocurrencia" preservaba la clasificacion
+        del atacante y registraba la legitima como repetida. **Un guard agregado
+        para cerrar B2 jugaba a favor del atacante de H-01.** No se cambia la
+        regla: se cerro la frontera de ingesta, que es donde estaba el problema.
         """
         pedidos = {a.ad_id for a in anuncios}
 
@@ -303,13 +320,15 @@ def _cargar_json(texto: str) -> dict[str, object] | None:
     igual aunque el prompt lo prohiba. Tolerar eso NO es relajar el guard: los
     campos siguen validandose contra el esquema.
     """
-    t = texto.strip()
-    if t.startswith("```"):
-        t = t.split("\n", 1)[-1] if "\n" in t else t
-        if t.rstrip().endswith("```"):
-            t = t.rstrip()[:-3]
-        if t.lstrip().startswith("json"):
-            t = t.lstrip()[4:]
+    # H-02 (auditoria independiente de Tao, 2026-09-07): la version anterior cortaba
+    # la linea del fence y DESPUES preguntaba `if t.lstrip().startswith("json")`.
+    # Para cuando preguntaba, el `json` del fence ya se habia ido con la linea.
+    # Medido sobre las cuatro formas que un proveedor emite de verdad: la rama se
+    # ejecuto 0 de 4 veces. Es la cuarta aparicion del defecto 10 de este registro
+    # (guard con rama inalcanzable) y no tenia impacto funcional, porque el trabajo
+    # real lo hacen find("{")/rfind("}"). Se retira igual: codigo muerto que parece
+    # un guard hace que el proximo que lo lea razone sobre un caso que no existe.
+    t = _FENCE.sub("", texto.strip()).strip()
     ini, fin = t.find("{"), t.rfind("}")
     if ini == -1 or fin <= ini:
         return None
