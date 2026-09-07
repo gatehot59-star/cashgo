@@ -1,72 +1,195 @@
 # EVIDENCIA CRUDA - VERBATIM (W-01)
-# Instrumento: python -m unittest discover -s fase0/tests -t . -v
-# Corrido por: BRAIN en su sandbox
-# Entorno: Python 3.12.13, pydantic 2.13.4, weasyprint 69.0, pypdf 6.14.2
-# Fecha: 2026-09-07
+# Instrumento: python3 -m unittest discover -s fase0/tests -t . -v
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
 #
-# Incluye los 26 tests nuevos de fase0/tests/test_hallazgos_auditoria.py, uno
-# por cada hallazgo B2..B8 de la auditoria externa, mas la correccion del
-# defecto 12 en test_cognitive.py.
+test_acepta_ue_y_uk (fase0.tests.test_adlibrary.TestAlcanceComercial.test_acepta_ue_y_uk) ... ok
+test_rechaza_lista_vacia (fase0.tests.test_adlibrary.TestAlcanceComercial.test_rechaza_lista_vacia) ... ok
+test_rechaza_mezcla_con_uno_invalido (fase0.tests.test_adlibrary.TestAlcanceComercial.test_rechaza_mezcla_con_uno_invalido)
+Un solo pais fuera de alcance invalida el pedido entero, no se filtra en silencio. ... ok
+test_rechaza_paises_sin_cobertura_comercial (fase0.tests.test_adlibrary.TestAlcanceComercial.test_rechaza_paises_sin_cobertura_comercial)
+CONTROL POSITIVO: este guard TIENE que dar rojo con US. ... ok
+test_lotes_de_diez (fase0.tests.test_adlibrary.TestBatchDePageIds.test_lotes_de_diez) ... ok
+test_lotes_rechaza_tamano_invalido (fase0.tests.test_adlibrary.TestBatchDePageIds.test_lotes_rechaza_tamano_invalido) ... ok
+test_veinticinco_paginas_son_tres_llamadas (fase0.tests.test_adlibrary.TestBatchDePageIds.test_veinticinco_paginas_son_tres_llamadas)
+La palanca de eficiencia: 25 marcas en 3 llamadas, no en 25. ... ok
+test_no_repite_el_mismo_ad_id (fase0.tests.test_adlibrary.TestPaginacion.test_no_repite_el_mismo_ad_id) ... ok
+test_para_sin_next_aunque_haya_cursor (fase0.tests.test_adlibrary.TestPaginacion.test_para_sin_next_aunque_haya_cursor)
+Meta devuelve `after` incluso en la ultima pagina: hay que mirar `next`. ... ok
+test_sigue_el_cursor_after (fase0.tests.test_adlibrary.TestPaginacion.test_sigue_el_cursor_after) ... ok
+test_tope_de_paginas_evita_bucle_infinito (fase0.tests.test_adlibrary.TestPaginacion.test_tope_de_paginas_evita_bucle_infinito)
+Un cursor mal apuntado no debe comerse el rate limit entero. ... ok
+test_activo_si_no_hay_fecha_de_fin (fase0.tests.test_adlibrary.TestParseoYDescartes.test_activo_si_no_hay_fecha_de_fin) ... ok
+test_descarta_filas_sin_fecha_de_inicio (fase0.tests.test_adlibrary.TestParseoYDescartes.test_descarta_filas_sin_fecha_de_inicio)
+Sin inicio no hay senal de longevidad, que es el unico proxy de exito. ... ok
+test_descarta_filas_sin_ids (fase0.tests.test_adlibrary.TestParseoYDescartes.test_descarta_filas_sin_ids) ... ok
+test_parsea_fecha_solo_dia (fase0.tests.test_adlibrary.TestParseoYDescartes.test_parsea_fecha_solo_dia) ... ok
+test_backoff_tiene_techo (fase0.tests.test_adlibrary.TestRateLimit.test_backoff_tiene_techo) ... ok
+test_la_ventana_se_desliza (fase0.tests.test_adlibrary.TestRateLimit.test_la_ventana_se_desliza) ... ok
+test_presupuesto_propio_corta_antes_que_meta (fase0.tests.test_adlibrary.TestRateLimit.test_presupuesto_propio_corta_antes_que_meta) ... ok
+test_reintenta_con_backoff_en_613 (fase0.tests.test_adlibrary.TestRateLimit.test_reintenta_con_backoff_en_613) ... ok
+test_se_rinde_despues_del_maximo_de_intentos (fase0.tests.test_adlibrary.TestRateLimit.test_se_rinde_despues_del_maximo_de_intentos)
+CONTROL POSITIVO: el backoff no puede ser infinito. ... ok
+test_registra_ad_ids_faltantes (fase0.tests.test_cognitive.TestCobertura.test_registra_ad_ids_faltantes)
+Omitir e inventar son fallas distintas y se arreglan distinto. ... ok
+test_saca_ad_ids_alucinados (fase0.tests.test_cognitive.TestCobertura.test_saca_ad_ids_alucinados)
+Un ad_id que no estaba en la entrada es el modelo inventando. ... ok
+test_tasa_de_rechazo (fase0.tests.test_cognitive.TestCobertura.test_tasa_de_rechazo) ... ok
+test_no_filtra_datos_que_sesgan_o_tientan (fase0.tests.test_cognitive.TestFormateoDeAnuncio.test_no_filtra_datos_que_sesgan_o_tientan)
+El page_name sesga hacia la marca, la fecha invita a razonar sobre ... ok
+test_va_delimitado (fase0.tests.test_cognitive.TestFormateoDeAnuncio.test_va_delimitado) ... ok
+test_cada_campo_cerrado_contiene_por_si_solo (fase0.tests.test_cognitive.TestInyeccionEnElCopy.test_cada_campo_cerrado_contiene_por_si_solo)
+Un valor hostil por vez, con el resto del item valido. Es lo que hace que la ... ok
+test_el_copy_hostil_llega_delimitado (fase0.tests.test_cognitive.TestInyeccionEnElCopy.test_el_copy_hostil_llega_delimitado) ... ok
+test_el_prompt_prohibe_obedecer_al_copy (fase0.tests.test_cognitive.TestInyeccionEnElCopy.test_el_prompt_prohibe_obedecer_al_copy)
+Guard secundario: existe y esta escrito. No es el que protege, ayuda. ... ok
+test_ningun_campo_del_esquema_admite_una_url (fase0.tests.test_cognitive.TestInyeccionEnElCopy.test_ningun_campo_del_esquema_admite_una_url)
+Aunque el modelo cuele la URL en la promesa, es texto acotado que despues ... ok
+test_si_el_modelo_obedece_la_inyeccion_el_esquema_lo_frena (fase0.tests.test_cognitive.TestInyeccionEnElCopy.test_si_el_modelo_obedece_la_inyeccion_el_esquema_lo_frena)
+Simulamos que el modelo se dejo inyectar por completo: devuelve el angulo Y ... ok
+test_el_hash_no_cambio (fase0.tests.test_cognitive.TestPrefijoEstable.test_el_hash_no_cambio)
+CONTROL POSITIVO: este test existe para dar rojo. ... ok
+test_el_prefijo_no_contiene_nada_interpolable (fase0.tests.test_cognitive.TestPrefijoEstable.test_el_prefijo_no_contiene_nada_interpolable)
+Una fecha, un contador o un placeholder en el prefijo mata el cache en ... ok
+test_el_prefijo_no_tiene_ninguna_fecha (fase0.tests.test_cognitive.TestPrefijoEstable.test_el_prefijo_no_tiene_ninguna_fecha)
+Ningun ano de cuatro digitos: es la forma mas comun de romper el cache. ... ok
+test_el_prefijo_va_primero_y_es_identico_entre_lotes (fase0.tests.test_cognitive.TestPrefijoEstable.test_el_prefijo_va_primero_y_es_identico_entre_lotes) ... ok
+test_acepta_lote_valido (fase0.tests.test_cognitive.TestValidacionEstricta.test_acepta_lote_valido) ... ok
+test_json_sin_la_clave_analisis (fase0.tests.test_cognitive.TestValidacionEstricta.test_json_sin_la_clave_analisis) ... ok
+test_lote_vacio_no_llama_al_modelo (fase0.tests.test_cognitive.TestValidacionEstricta.test_lote_vacio_no_llama_al_modelo) ... ok
+test_promesa_se_acota_no_se_rechaza (fase0.tests.test_cognitive.TestValidacionEstricta.test_promesa_se_acota_no_se_rechaza)
+El texto libre se recorta; solo los campos cerrados hacen fallar. ... ok
+test_rechaza_angulo_fuera_de_la_taxonomia (fase0.tests.test_cognitive.TestValidacionEstricta.test_rechaza_angulo_fuera_de_la_taxonomia)
+CONTROL POSITIVO del guard estructural de la Regla 6. ... ok
+test_rechaza_campos_extra (fase0.tests.test_cognitive.TestValidacionEstricta.test_rechaza_campos_extra)
+`extra=forbid`: un campo que el esquema no declara es un rechazo. ... ok
+test_rechaza_confianza_fuera_de_rango (fase0.tests.test_cognitive.TestValidacionEstricta.test_rechaza_confianza_fuera_de_rango) ... ok
+test_respuesta_no_json_es_un_rechazo_no_una_excepcion (fase0.tests.test_cognitive.TestValidacionEstricta.test_respuesta_no_json_es_un_rechazo_no_una_excepcion) ... ok
+test_tolera_envoltorio_markdown (fase0.tests.test_cognitive.TestValidacionEstricta.test_tolera_envoltorio_markdown) ... ok
+test_un_item_malo_no_tira_los_buenos (fase0.tests.test_cognitive.TestValidacionEstricta.test_un_item_malo_no_tira_los_buenos)
+Degradacion controlada: 39 validos no se pierden por 1 invalido. ... ok
+test_apps_distintas_pasan (fase0.tests.test_e2e_pipeline.TestConfigGuards.test_apps_distintas_pasan) ... ok
+test_dry_run_no_exige_credenciales (fase0.tests.test_e2e_pipeline.TestConfigGuards.test_dry_run_no_exige_credenciales) ... ok
+test_rechaza_paises_fuera_del_dsa (fase0.tests.test_e2e_pipeline.TestConfigGuards.test_rechaza_paises_fuera_del_dsa) ... ok
+test_regla_9_detecta_la_colision_de_app_id (fase0.tests.test_e2e_pipeline.TestConfigGuards.test_regla_9_detecta_la_colision_de_app_id)
+CONTROL POSITIVO de la Regla 9 del ADR-CG-002: si el scraper y el gateway ... ok
+test_genera_un_pdf_no_trivial (fase0.tests.test_e2e_pipeline.TestPdf.test_genera_un_pdf_no_trivial)
+Verifica que WeasyPrint produce un PDF real y con mas de una pagina. ... ok
+test_colapsa_el_duplicado_del_fixture (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_colapsa_el_duplicado_del_fixture) ... ok
+test_deja_audit_log (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_deja_audit_log) ... ok
+test_el_audit_log_registra_el_hash_del_prefijo (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_el_audit_log_registra_el_hash_del_prefijo)
+Trazabilidad: que prompt exacto produjo estos analisis. ... ok
+test_el_duplicado_igual_recibe_su_analisis (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_el_duplicado_igual_recibe_su_analisis)
+22 anuncios fueron al modelo y hay 23 analisis. No es un error de suma: el ... ok
+test_el_informe_renderiza (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_el_informe_renderiza) ... ok
+test_encuentra_al_menos_un_gap (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_encuentra_al_menos_un_gap) ... ok
+test_la_inyeccion_del_fixture_no_produjo_un_angulo_invalido (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_la_inyeccion_del_fixture_no_produjo_un_angulo_invalido)
+El fixture trae un anuncio con una inyeccion de prompt. Cualquiera sea la ... ok
+test_neutraliza_la_inyeccion_del_fixture_en_el_entregable (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_neutraliza_la_inyeccion_del_fixture_en_el_entregable)
+El fixture trae un anuncio con inyeccion de prompt y una URL maliciosa. ... ok
+test_pagina_con_dos_llamadas (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_pagina_con_dos_llamadas)
+5 page_ids entran en un solo batch de 10; el fixture tiene 2 paginas. ... ok
+test_separa_prospecto_de_competencia (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_separa_prospecto_de_competencia) ... ok
+test_trae_el_corpus_y_descarta_la_fila_rota (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_trae_el_corpus_y_descarta_la_fila_rota)
+El fixture tiene 24 filas: una sin fecha de inicio se descarta. ... ok
+test_un_solo_lote_al_modelo (fase0.tests.test_e2e_pipeline.TestPrimeraCorrida.test_un_solo_lote_al_modelo) ... ok
+test_la_segunda_corrida_produce_el_mismo_informe (fase0.tests.test_e2e_pipeline.TestSegundaCorrida.test_la_segunda_corrida_produce_el_mismo_informe)
+El dedup no puede degradar el entregable: reusa el analisis persistido. ... ok
+test_segunda_corrida_no_paga_tokens (fase0.tests.test_e2e_pipeline.TestSegundaCorrida.test_segunda_corrida_no_paga_tokens)
+LA PROPIEDAD QUE SOSTIENE EL MODELO DE COSTO. ... ok
+test_gana_la_primera_ocurrencia_y_la_segunda_se_registra (fase0.tests.test_hallazgos_auditoria.TestB2_AdIdRepetido.test_gana_la_primera_ocurrencia_y_la_segunda_se_registra) ... ok
+test_la_tasa_de_rechazo_ya_no_esta_subestimada (fase0.tests.test_hallazgos_auditoria.TestB2_AdIdRepetido.test_la_tasa_de_rechazo_ya_no_esta_subestimada) ... ok
+test_tres_modos_de_falla_distinguibles (fase0.tests.test_hallazgos_auditoria.TestB2_AdIdRepetido.test_tres_modos_de_falla_distinguibles)
+INVENTADO, REPETIDO y OMITIDO son tres motivos distintos, no dos. ... ok
+test_el_copy_no_puede_fabricar_un_bloque (fase0.tests.test_hallazgos_auditoria.TestB3_ContaminacionCruzadaIntraLote.test_el_copy_no_puede_fabricar_un_bloque) ... ok
+test_el_texto_sigue_siendo_legible (fase0.tests.test_hallazgos_auditoria.TestB3_ContaminacionCruzadaIntraLote.test_el_texto_sigue_siendo_legible)
+Neutralizar no es destruir: el copy tiene que seguir clasificable. ... ok
+test_la_secuencia_se_neutraliza_en_la_ingesta (fase0.tests.test_hallazgos_auditoria.TestB3_ContaminacionCruzadaIntraLote.test_la_secuencia_se_neutraliza_en_la_ingesta)
+La defensa vive en `normalizar`, o sea en la frontera de ingesta, para que ... ok
+test_secuencias_largas_tambien (fase0.tests.test_hallazgos_auditoria.TestB3_ContaminacionCruzadaIntraLote.test_secuencias_largas_tambien) ... ok
+test_el_umbral_es_el_del_modelo_de_costo (fase0.tests.test_hallazgos_auditoria.TestB4_InstrumentacionDelCache.test_el_umbral_es_el_del_modelo_de_costo)
+CONTROL POSITIVO: el guard tiene que poder dar rojo por debajo del umbral. ... ok
+test_el_uso_llega_al_resultado_del_lote (fase0.tests.test_hallazgos_auditoria.TestB4_InstrumentacionDelCache.test_el_uso_llega_al_resultado_del_lote) ... ok
+test_extrae_los_alias_conocidos_del_proveedor (fase0.tests.test_hallazgos_auditoria.TestB4_InstrumentacionDelCache.test_extrae_los_alias_conocidos_del_proveedor) ... ok
+test_metricas_expone_tres_estados (fase0.tests.test_hallazgos_auditoria.TestB4_InstrumentacionDelCache.test_metricas_expone_tres_estados) ... ok
+test_none_no_es_cero (fase0.tests.test_hallazgos_auditoria.TestB4_InstrumentacionDelCache.test_none_no_es_cero)
+Si el proveedor no reporta tokens de cache, el ratio es None y no 0,0. Un ... ok
+test_sin_bloque_usage_devuelve_none (fase0.tests.test_hallazgos_auditoria.TestB4_InstrumentacionDelCache.test_sin_bloque_usage_devuelve_none) ... ok
+test_trunca_y_no_rechaza (fase0.tests.test_hallazgos_auditoria.TestB5_TruncamientoDeclarado.test_trunca_y_no_rechaza) ... ok
+test_una_promesa_larga_no_invalida_el_lote (fase0.tests.test_hallazgos_auditoria.TestB5_TruncamientoDeclarado.test_una_promesa_larga_no_invalida_el_lote)
+Es la razon por la que truncar es correcto y rechazar no lo seria: 39 ... ok
+test_las_plataformas_siguen_en_el_registro (fase0.tests.test_hallazgos_auditoria.TestB6_PlataformasFueraDelHash.test_las_plataformas_siguen_en_el_registro)
+Sacarlas del hash no es perderlas: el informe las sigue usando. ... ok
+test_mismo_hash_al_agregar_una_plataforma (fase0.tests.test_hallazgos_auditoria.TestB6_PlataformasFueraDelHash.test_mismo_hash_al_agregar_una_plataforma) ... ok
+test_sigue_distinguiendo_lo_que_debe (fase0.tests.test_hallazgos_auditoria.TestB6_PlataformasFueraDelHash.test_sigue_distinguiendo_lo_que_debe)
+La identidad declarada es page_id + copy. Nada mas y nada menos. ... ok
+test_content_none_no_revienta (fase0.tests.test_hallazgos_auditoria.TestB7_RobustezDelClienteCognitivo.test_content_none_no_revienta) ... ok
+test_el_tope_de_salida_cubre_el_lote_completo (fase0.tests.test_hallazgos_auditoria.TestB7_RobustezDelClienteCognitivo.test_el_tope_de_salida_cubre_el_lote_completo)
+Un lote de ANUNCIOS_POR_LOTE anuncios necesita del orden de 140 tokens de ... ok
+test_forma_inesperada_devuelve_vacio (fase0.tests.test_hallazgos_auditoria.TestB7_RobustezDelClienteCognitivo.test_forma_inesperada_devuelve_vacio) ... ok
+test_texto_vacio_degrada_a_rechazo_registrado (fase0.tests.test_hallazgos_auditoria.TestB7_RobustezDelClienteCognitivo.test_texto_vacio_degrada_a_rechazo_registrado)
+La degradacion tiene que ser observable, no una excepcion a mitad de corrida. ... ok
+test_ahora_cubre_los_casos_reportados (fase0.tests.test_hallazgos_auditoria.TestB8_AlcanceDeSinUrls.test_ahora_cubre_los_casos_reportados) ... ok
+test_el_alcance_declarado_admite_falsos_negativos (fase0.tests.test_hallazgos_auditoria.TestB8_AlcanceDeSinUrls.test_el_alcance_declarado_admite_falsos_negativos)
+HONESTIDAD DEL INSTRUMENTO: un TLD fuera de la lista pasa, y esta bien que ... ok
+test_no_destruye_texto_comercial_legitimo (fase0.tests.test_hallazgos_auditoria.TestB8_AlcanceDeSinUrls.test_no_destruye_texto_comercial_legitimo)
+Un falso positivo aca abarata el entregable tanto como un falso negativo. ... ok
+test_sigue_cubriendo_los_de_antes (fase0.tests.test_hallazgos_auditoria.TestB8_AlcanceDeSinUrls.test_sigue_cubriendo_los_de_antes) ... ok
+test_anuncio_sin_analisis_no_cuenta_como_angulo (fase0.tests.test_report.TestAgregacion.test_anuncio_sin_analisis_no_cuenta_como_angulo)
+Un anuncio que no se pudo clasificar es NO MEDIDO, no es angulo "otro". ... ok
+test_corpus_vacio_no_explota (fase0.tests.test_report.TestAgregacion.test_corpus_vacio_no_explota) ... ok
+test_cuenta_angulos_de_la_competencia_solamente (fase0.tests.test_report.TestAgregacion.test_cuenta_angulos_de_la_competencia_solamente) ... ok
+test_el_gap_es_una_resta_de_conjuntos (fase0.tests.test_report.TestAgregacion.test_el_gap_es_una_resta_de_conjuntos) ... ok
+test_formato_ganador_es_el_mas_sostenido_no_el_mas_frecuente (fase0.tests.test_report.TestAgregacion.test_formato_ganador_es_el_mas_sostenido_no_el_mas_frecuente) ... ok
+test_longevos_respetan_el_umbral (fase0.tests.test_report.TestAgregacion.test_longevos_respetan_el_umbral) ... ok
+test_no_marca_como_gap_lo_que_el_prospecto_ya_usa (fase0.tests.test_report.TestAgregacion.test_no_marca_como_gap_lo_que_el_prospecto_ya_usa) ... ok
+test_ordena_competidores_por_mediana_de_dias (fase0.tests.test_report.TestAgregacion.test_ordena_competidores_por_mediana_de_dias)
+Por persistencia, no por volumen: el volumen puede ser una agencia. ... ok
+test_otro_nunca_es_un_gap_accionable (fase0.tests.test_report.TestAgregacion.test_otro_nunca_es_un_gap_accionable)
+"Proba el angulo otro" no le sirve a nadie. ... ok
+test_declara_el_limite_geografico_del_dsa (fase0.tests.test_report.TestContenidoDelHtml.test_declara_el_limite_geografico_del_dsa) ... ok
+test_declara_que_la_longevidad_es_un_supuesto (fase0.tests.test_report.TestContenidoDelHtml.test_declara_que_la_longevidad_es_un_supuesto) ... ok
+test_declara_que_no_hay_datos_de_gasto (fase0.tests.test_report.TestContenidoDelHtml.test_declara_que_no_hay_datos_de_gasto)
+La pagina de metodologia es parte del producto, no un disclaimer legal: ... ok
+test_expone_la_trazabilidad_de_la_corrida (fase0.tests.test_report.TestContenidoDelHtml.test_expone_la_trazabilidad_de_la_corrida) ... ok
+test_dos_construcciones_dan_lo_mismo (fase0.tests.test_report.TestDeterminismo.test_dos_construcciones_dan_lo_mismo) ... ok
+test_el_orden_de_entrada_no_cambia_la_salida (fase0.tests.test_report.TestDeterminismo.test_el_orden_de_entrada_no_cambia_la_salida)
+Sin desempate estable, dos corridas iguales dan informes incomparables. ... ok
+test_escapa_el_nombre_del_competidor (fase0.tests.test_report.TestEscapado.test_escapa_el_nombre_del_competidor) ... ok
+test_escapa_el_nombre_del_prospecto (fase0.tests.test_report.TestEscapado.test_escapa_el_nombre_del_prospecto) ... ok
+test_escapa_la_narrativa (fase0.tests.test_report.TestEscapado.test_escapa_la_narrativa) ... ok
+test_escapa_la_promesa_que_salio_del_modelo (fase0.tests.test_report.TestEscapado.test_escapa_la_promesa_que_salio_del_modelo) ... ok
+test_no_queda_ningun_script_en_todo_el_documento (fase0.tests.test_report.TestEscapado.test_no_queda_ningun_script_en_todo_el_documento)
+CONTROL POSITIVO: barrido del documento entero, no campo por campo. ... ok
+test_distingue_copy_distinto (fase0.tests.test_schemas_y_dedup.TestContentHash.test_distingue_copy_distinto) ... ok
+test_distingue_pagina_distinta (fase0.tests.test_schemas_y_dedup.TestContentHash.test_distingue_pagina_distinta)
+Misma creatividad en dos marcas son dos hechos de mercado distintos. ... ok
+test_ignora_el_ad_id (fase0.tests.test_schemas_y_dedup.TestContentHash.test_ignora_el_ad_id)
+Dos ad_id distintos con la misma creatividad son el mismo contenido. ... ok
+test_ignora_fechas_de_entrega (fase0.tests.test_schemas_y_dedup.TestContentHash.test_ignora_fechas_de_entrega)
+LA propiedad que sostiene el 88% de ahorro. ... ok
+test_ignora_la_fecha_de_inicio (fase0.tests.test_schemas_y_dedup.TestContentHash.test_ignora_la_fecha_de_inicio)
+AGREGADO DESPUES DE QUE EL CONTROL POSITIVO ENCONTRARA EL HUECO (2026-09-06). ... ok
+test_no_depende_del_orden_de_plataformas (fase0.tests.test_schemas_y_dedup.TestContentHash.test_no_depende_del_orden_de_plataformas) ... ok
+test_nunca_negativo (fase0.tests.test_schemas_y_dedup.TestDiasActivo.test_nunca_negativo)
+Un anuncio con inicio futuro (dato sucio de la API) no rompe la mediana. ... ok
+test_usa_fin_si_existe (fase0.tests.test_schemas_y_dedup.TestDiasActivo.test_usa_fin_si_existe) ... ok
+test_usa_hoy_si_sigue_activo (fase0.tests.test_schemas_y_dedup.TestDiasActivo.test_usa_hoy_si_sigue_activo) ... ok
+test_es_idempotente (fase0.tests.test_schemas_y_dedup.TestNormalizacion.test_es_idempotente) ... ok
+test_saca_control_y_colapsa_espacios (fase0.tests.test_schemas_y_dedup.TestNormalizacion.test_saca_control_y_colapsa_espacios) ... ok
+test_colapsa_duplicados_dentro_del_lote (fase0.tests.test_schemas_y_dedup.TestParticionar.test_colapsa_duplicados_dentro_del_lote)
+Agencias reciclan creatividades: mismo copy, distinto ad_id. ... ok
+test_corpus_vacio_no_divide_por_cero (fase0.tests.test_schemas_y_dedup.TestParticionar.test_corpus_vacio_no_divide_por_cero) ... ok
+test_ratio_de_ahorro (fase0.tests.test_schemas_y_dedup.TestParticionar.test_ratio_de_ahorro) ... ok
+test_separa_nuevos_de_conocidos (fase0.tests.test_schemas_y_dedup.TestParticionar.test_separa_nuevos_de_conocidos) ... ok
+test_no_toca_texto_sin_urls (fase0.tests.test_schemas_y_dedup.TestSinUrls.test_no_toca_texto_sin_urls) ... ok
+test_reemplaza_http_y_https (fase0.tests.test_schemas_y_dedup.TestSinUrls.test_reemplaza_http_y_https) ... ok
+test_reemplaza_www_sin_protocolo (fase0.tests.test_schemas_y_dedup.TestSinUrls.test_reemplaza_www_sin_protocolo) ... ok
+test_se_aplica_en_el_esquema_del_analisis (fase0.tests.test_schemas_y_dedup.TestSinUrls.test_se_aplica_en_el_esquema_del_analisis)
+CONTROL POSITIVO: el guard tiene que estar cableado, no solo definido. ... ok
 
 ----------------------------------------------------------------------
-Ran 128 tests in 1.368s
+Ran 128 tests in 1.335s
 
 OK
-EXIT=0
-
-# --- desglose por clase (unittest.TestLoader().discover) ---
-TOTAL: 128
-
-    4  test_adlibrary.TestAlcanceComercial
-    3  test_adlibrary.TestBatchDePageIds
-    4  test_adlibrary.TestPaginacion
-    4  test_adlibrary.TestParseoYDescartes
-    5  test_adlibrary.TestRateLimit
-    3  test_cognitive.TestCobertura
-    2  test_cognitive.TestFormateoDeAnuncio
-    5  test_cognitive.TestInyeccionEnElCopy
-    4  test_cognitive.TestPrefijoEstable
-   10  test_cognitive.TestValidacionEstricta
-    4  test_e2e_pipeline.TestConfigGuards
-    1  test_e2e_pipeline.TestPdf
-   12  test_e2e_pipeline.TestPrimeraCorrida
-    2  test_e2e_pipeline.TestSegundaCorrida
-    3  test_hallazgos_auditoria.TestB2_AdIdRepetido
-    4  test_hallazgos_auditoria.TestB3_ContaminacionCruzadaIntraLote
-    6  test_hallazgos_auditoria.TestB4_InstrumentacionDelCache
-    2  test_hallazgos_auditoria.TestB5_TruncamientoDeclarado
-    3  test_hallazgos_auditoria.TestB6_PlataformasFueraDelHash
-    4  test_hallazgos_auditoria.TestB7_RobustezDelClienteCognitivo
-    4  test_hallazgos_auditoria.TestB8_AlcanceDeSinUrls
-    9  test_report.TestAgregacion
-    4  test_report.TestContenidoDelHtml
-    2  test_report.TestDeterminismo
-    5  test_report.TestEscapado
-    6  test_schemas_y_dedup.TestContentHash
-    3  test_schemas_y_dedup.TestDiasActivo
-    2  test_schemas_y_dedup.TestNormalizacion
-    4  test_schemas_y_dedup.TestParticionar
-    4  test_schemas_y_dedup.TestSinUrls
-
-# ---------------------------------------------------------------------------
-# LOS ROJOS REALES QUE ESTA SUITE PRODUJO. Un "128 tests OK" sin historia de
-# fallas es sospechoso: una suite que nunca dio rojo probablemente no puede darlo.
-#
-# DEFECTOS DEL CODIGO (2):
-#   1. AssertionError: 6 != 5 -- `reintentos_613` contaba tambien el 613 final que
-#      hace abandonar. Metrica incongruente con su propio fenomeno.
-#   2. AssertionError: {'...ia', 2)} != {'...ia', 3)} -- los analisis se indexaban
-#      por ad_id, asi que la segunda corrida daba un informe DISTINTO para el mismo
-#      corpus. Invisible en una sola ejecucion.
-#
-# FALSOS ROJOS DE MIS PROPIOS TESTS (3), el codigo estaba bien:
-#   3. '{' unexpectedly found -- prohibi llaves en un prefijo con ejemplos de JSON.
-#   4. 'onload=' unexpectedly found -- no distinguia `onload=&quot;` (inerte) de
-#      `onload="` (ataque real).
-#   5. 0 not greater than or equal to 2 -- grepear b"/Type /Page" en un PDF con
-#      objetos comprimidos.
-#
-# Y EL DEFECTO 12, que ningun rojo de esta suite podia encontrar porque era un
-# FALSO VERDE: lo encontro el control positivo endurecido. Ver
-# evidencia/salida_control_positivo.txt.
-# ---------------------------------------------------------------------------
