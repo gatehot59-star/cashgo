@@ -30,35 +30,40 @@ Tres hechos de esa pasada, sin suavizar:
 Esta revision no discute nada de eso. Lo corrige con instrumentos y declara que la
 **rubrica externa vigente sigue siendo 88/100** hasta que haya tercera pasada.
 
-### 1.1 Lo que NO esta cerrado en este head, dicho antes de que lo encuentre el auditor
+### 1.1 El CI de este head, medido: `suite` VERDE y `custodia` ROJA
 
-**Los recibos de `evidencia/` y `evidencia/MANIFEST.sha256` todavia son los del
-head anterior.** O sea: el paso `custodia/manifiesto` de este head **va a dar
-ROJO**, y va a tener razon. No se declara verde nada que no lo este.
+Predije este resultado en el commit anterior y salio exactamente asi. Runs
+`34088020557` (push) y `34088017038` (PR), los dos con el mismo veredicto por job:
 
-Dos cosas que si se pueden afirmar de ese rojo:
+| Job | Resultado | Duracion | Que significa |
+|---|---|---|---|
+| `suite (el codigo funciona)` | **success** | 56 s | 128 tests, control positivo 7/7, pipeline, PDF y modelos de costo verificados **por instrumento ajeno** sobre el arbol corregido |
+| `custodia (recibos vs arbol)` | **failure** | 6 s | los recibos de `evidencia/` y el `MANIFEST.sha256` eran los del head anterior |
 
-- **Es documental, no funcional.** Con el workflow partido (D2), ese rojo ya **no
-  oculta** el estado del codigo: `suite` corre en paralelo con los 128 tests, el
-  control positivo, el pipeline y los modelos. Es el arreglo de D2 demostrandose a
-  si mismo en su primera oportunidad, y es exactamente la informacion que el head
-  `de13b9a6` no pudo dar.
-- **El contenido de esos recibos existe y esta medido**, corrido sobre este mismo
-  arbol convergido con las tres dependencias pinneadas; lo que falta es
-  commitearlo. Los numeros estan en la seccion 5.2. Regenerarlos y firmarlos es un
-  comando: `bash scripts/cerrar.sh --regenerar`.
+**Esto es lo mas importante de esta revision, y no es una correccion: es una
+medicion.** Con el job unico de `de13b9a6`, un defecto documental de una linea dejo
+`skipped` la verificacion de ocho correcciones de codigo, y durante horas nadie
+pudo saber si B1-B8 funcionaban. Con el workflow partido, el mismo tipo de defecto
+documental convivio con un **verde funcional legible**: el rojo de custodia no tapo
+nada. D2 se demostro a si mismo en su primera oportunidad, y esa es la unica clase
+de evidencia que vale para un arreglo de proceso.
+
+El rojo de custodia se cierra regenerando los recibos con
+`bash scripts/cerrar.sh --regenerar`, que es lo que hace el commit que trae esta
+seccion. **Los dos jobs verdes sobre el mismo head es la condicion para declarar el
+head verificado**, y esa condicion ahora se lee sin abrir un log.
 
 ## 2. Que cambio, y por que cada cambio es un instrumento y no una promesa
 
 | Hallazgo | Correccion | Como se verifica que quedo cerrado |
 |---|---|---|
-| **B (informe ≠ CSV ≠ arbol)** | un solo commit de convergencia: se decide `fase0/fixtures/__init__.py` (conserva su docstring, 1 linea) y se regenera TODO junto con `scripts/cerrar.sh` | `scripts/informe_vs_csv.py` da rojo si la fila TOTAL del informe no sale del CSV |
+| **B (informe ≠ CSV ≠ arbol)** | se decide `fase0/fixtures/__init__.py` (conserva su docstring, 1 linea) y se regenera TODO junto con `scripts/cerrar.sh` | `scripts/informe_vs_csv.py` da rojo si la fila TOTAL del informe no sale del CSV |
 | **D1 (CSV contaminado)** | `inventario.py --csv` manda los mensajes de guard a **stderr**; stdout es CSV y nada mas | el CSV commiteado ya no tiene la linea `GUARD VERDE`; un parser lo lee entero |
-| **D2 (un job secuencial ciega el codigo)** | el workflow se parte en **dos jobs paralelos**: `custodia` (6 pasos, stdlib pura) y `suite` (12 pasos) | un CSV viejo enrojece `custodia` sin ocultar `suite`. Verificado con parser YAML: 2 jobs, 6 y 12 pasos |
+| **D2 (un job secuencial ciega el codigo)** | el workflow se parte en **dos jobs paralelos**: `custodia` (6 pasos, stdlib pura) y `suite` (12 pasos) | **medido en 1.1**: custodia roja y suite verde en el mismo head, sin ocultarse |
 | **D3 (el control positivo muta el arbol real)** | aborta con exit 2 si `git status --porcelain` no esta limpio en los 3 archivos que muta; restauracion doble (copia + `git checkout --`); trap en EXIT, INT y TERM | probado en los dos sentidos: arbol limpio -> 7/7 cazadas; archivo sucio a proposito -> **exit 2, "No se midio nada"** |
 | **D4 (descripcion del PR obsoleta)** | cuerpo del PR reescrito al alcance real | la pagina del PR ya no dice "cero codigo de producto" |
-| **D5 (8 commits de convergencia a mano)** | `scripts/cerrar.sh`: regenera los recibos y **despues** exige `git status` limpio. Instalable como hook `pre-push` | A1 pasa a darse rojo antes del push en vez de despues |
-| **A1 preventivo** | `.gitattributes` con `* text=auto eol=lf` | ningun hash del manifiesto depende de la plataforma del clon |
+| **D5 (8 commits de convergencia a mano)** | `scripts/cerrar.sh`: regenera los recibos y **despues** exige `git status` limpio. Instalable como hook `pre-push` | A1 pasa a darse rojo antes del push en vez de despues (ver defecto 24) |
+| **A1 preventivo** | `.gitattributes` con `* text=auto eol=lf` | ningun hash del manifiesto depende de la plataforma del clon (ver defecto 23) |
 
 ### 2.1 Lo que NO se hizo, y por que
 
@@ -110,19 +115,17 @@ tres estados (VERDE, ROJO, NO MEDIDO).
 
 ## 5. Verificacion
 
-### 5.1 Estado del CI: lo que se puede y lo que no se puede afirmar
+### 5.1 Estado del CI
 
-**No se afirma nada sobre CI ajeno en este head hasta que corra.** El ultimo verde
-conocido al momento de escribir esto es `31178a1`, ocho commits atras, **antes** de
-B1-B8. El head `de13b9a6` dio `failure` en los runs `34084699103` y `34084702756`.
-Cualquier lectura de "verificado por CI ajeno" en la revision 2 valia para
-`31178a1` y no para el arbol corregido: el auditor lo marco y es correcto.
+El ultimo verde de job unico fue `31178a1`, **antes** de B1-B8. El head `de13b9a6`
+dio `failure` en los runs `34084699103` y `34084702756`, con todo lo funcional en
+`skipped`. Cualquier lectura de "verificado por CI ajeno" en la revision 2 valia
+para `31178a1` y no para el arbol corregido: el auditor lo marco y es correcto.
 
-Con el workflow partido, la afirmacion futura tiene que ser por job: `custodia`
-verde significa que los recibos describen el arbol; `suite` verde significa que el
-codigo funciona. Son dos cosas distintas y hasta ahora se reportaban como una. En
-este head se espera `suite` verde y `custodia` roja en el paso del manifiesto, por
-lo declarado en 1.1.
+Con el workflow partido la afirmacion es por job, y ya esta medida: **`suite`
+success en 56 s** significa que el codigo funciona sobre el arbol corregido;
+**`custodia` failure en 6 s** significaba que los recibos eran viejos. Los numeros
+completos estan en 1.1.
 
 ### 5.2 Instrumento propio, con evidencia cruda (W-01)
 
@@ -132,18 +135,22 @@ un arbol reconstruido y **verificado blob a blob contra `de13b9a6`**: 21 archivo
 de codigo con SHA-1 de git identicos, o sea que lo que se midio es el arbol del
 repo y no una copia parecida.
 
-| Instrumento | Resultado |
-|---|---|
-| `unittest discover` | **128 tests, exit 0**, 1,288 s |
-| conteo estatico de `def test_` | **128**, coincide con lo declarado |
-| `control_positivo_suite.sh` | **7/7 cazadas por su test especifico**, arbol restaurado en verde |
-| guard D3 del control positivo | **exit 2 con archivo sucio**: el guard puede dar rojo |
-| `inventario.py` | 24 archivos parsean, las sumas cierran |
-| `informe_vs_csv.py` | fila TOTAL del informe == CSV |
-| `manifiesto.py --verificar` | verde en el sandbox; **rojo esperado en este head** (1.1) |
-| pipeline `--dry-run --pdf` | 23 filas de 24, 1 duplicado colapsado, 2 llamadas, 1 lote, 23 analisis, **0 rechazos**, PDF de 4 paginas y 4.474 caracteres |
-| `modelo_costo_arq3.py` | GUARD VERDE margen peak **96,28%** |
-| `sensibilidad_infra_y_equipo.py` | corre completo; margen peak con el stack del blueprint (USD 395) **82,14%** |
+| Instrumento | Resultado | Recibo |
+|---|---|---|
+| `unittest discover` | **128 tests, exit 0** | `evidencia/salida_tests_fase0.txt` |
+| conteo estatico de `def test_` | **128**, coincide con lo declarado | — |
+| `control_positivo_suite.sh` | **7/7 cazadas por su test especifico**, arbol restaurado en verde | `evidencia/salida_control_positivo.txt` |
+| guard D3 del control positivo | **exit 2 con archivo sucio**: el guard puede dar rojo | 5.3 |
+| `inventario.py` | 24 archivos parsean, las sumas cierran | `evidencia/salida_inventario.txt` |
+| `informe_vs_csv.py` | fila TOTAL del informe == CSV | — |
+| `manifiesto.py --verificar` | 18 entradas coinciden con el arbol | `evidencia/salida_manifiesto.txt` |
+| pipeline `--dry-run --pdf` | 23 filas de 24, 1 duplicado colapsado, 2 llamadas, 1 lote, 23 analisis, **0 rechazos**, PDF de 4 paginas y 4.474 caracteres | `evidencia/salida_fase0_dryrun.txt` |
+| `modelo_costo_arq3.py` | GUARD VERDE margen peak **96,28%** | `evidencia/salida_modelo_costo_arq3.txt` |
+| `sensibilidad_infra_y_equipo.py` | margen peak con el stack del blueprint (USD 395) **82,14%** | `evidencia/salida_sensibilidad_infra_y_equipo.txt` |
+
+Cada recibo arranca con una cabecera de procedencia: instrumento, comando, version
+de Python y las tres dependencias pinneadas. Sin eso un archivo de evidencia no
+dice quien lo corrio ni con que, y entonces no se puede contradecir.
 
 El HTML es byte-determinista; el PDF **no**, porque WeasyPrint embebe el timestamp
 de creacion (medido: 23.259 / 23.251 / 23.254 bytes en tres corridas, tres SHA
@@ -177,10 +184,10 @@ criterios que el auditor bajo, y el resultado de eso lo mide el auditor, no yo.
 
 | Criterio | 1a pasada | 2a pasada (vigente) | Que se toco en esta revision |
 |---|---:|---:|---|
-| Ejecutabilidad | 15 | 13 | CI partido en dos jobs; recibos regenerados desde el arbol final |
+| Ejecutabilidad | 15 | 13 | CI partido en dos jobs, con `suite` success medido sobre el arbol corregido |
 | Seguridad | 12 | 13 | sin cambios (B3 y B7 ya cerrados) |
 | Testing | 12 | 13 | guard de arbol limpio en el control positivo |
-| Proceso QA | 2 | 1 | `informe_vs_csv.py`, `cerrar.sh`, `.gitattributes`, D1 |
+| Proceso QA | 2 | 1 | `informe_vs_csv.py`, `cerrar.sh`, `.gitattributes`, D1, cabeceras de procedencia |
 | Resto | 48 | 48 | — |
 | **Total** | **89** | **88** | **pendiente de tercera pasada** |
 
@@ -199,7 +206,7 @@ criterios que el auditor bajo, y el resultado de eso lo mide el auditor, no yo.
 11. Resultados de pip-audit y gitleaks: van con `continue-on-error`, o sea que **todavia no son un control**.
 12. Tercera revision externa de estas correcciones.
 13. Cobertura de lineas: no hay instrumento. 128 tests no son una medida de cobertura.
-14. El CI de este head: al cerrar el turno no habia corrido todavia. Ver 1.1 y 5.1.
+14. ~~El CI de este head~~ **RESUELTO Y MEDIDO**: ver 1.1. Se deja tachado en vez de borrado porque un NO MEDIDO que se resuelve es informacion, y borrarlo esconde que hubo un tramo del turno en que la afirmacion no tenia respaldo.
 
 ## 8. Registro completo de defectos propios
 
@@ -228,7 +235,8 @@ criterios que el auditor bajo, y el resultado de eso lo mide el auditor, no yo.
 23. **Mi propio `.gitattributes` preventivo casi rompe el manifiesto en cualquier clon fresco.** `csv.DictWriter` escribe CRLF por default, asi que `evidencia/modelo_costo_arq3.csv` tenia CRLF en el arbol de trabajo; con `* text=auto eol=lf` git guarda LF, un clon nuevo recibe LF, y el manifiesto (que firma bytes crudos) habria dado rojo por una diferencia que no es de contenido. Lo cazo `git` con un warning que estuvo a un caracter de pasar desapercibido. Correccion: `lineterminator="\n"` explicito en el escritor, no una excepcion en el `.gitattributes`. Una medida preventiva sin control positivo es una hipotesis.
 24. **El informe se me quedo viejo mientras corregia otra cosa, y esta vez lo cazo el instrumento y no un humano.** Al agregar cinco lineas de comentario a `modelo_costo_arq3.py` la tabla del inventario dejo de coincidir con el CSV, y `informe_vs_csv.py` dio `GUARD ROJO: total informe=4805 csv=4811` antes de cualquier push. Es la septima aparicion de A1 y la primera que costo veinte segundos en vez de un ciclo de auditoria externa. Eso es la diferencia entre disciplina e instrumento, medida.
 25. **Un recibo commiteado imprimia la ruta absoluta de mi sandbox** (`/home/.../cashgo/evidencia/...`). Dos problemas en una linea: no es reproducible en otro clon (el auditor recomputa y le da otra cosa) y filtra el layout de mi maquina a un archivo de evidencia publico. Correccion: ruta relativa a la raiz del repo. Lo encontre leyendo el recibo antes de pushearlo, que es exactamente lo que no habia hecho en las tres revisiones anteriores.
-26. **Parti la convergencia en tres commits cuando la correccion pedida era UNO, y deje los recibos de evidencia sin regenerar en el repo.** El motivo es real y no es una excusa: el canal por el que escribo archivos tiene un limite de tamano por operacion y 105 KB no entraban. Lo que corresponde entonces es declararlo antes de que lo encuentre el auditor, no llamarlo "un solo commit". Esta en 1.1 con su consecuencia exacta: `custodia/manifiesto` va a dar rojo en este head.
+26. **Parti la convergencia en tres commits cuando la correccion pedida era UNO, y pushee un head sabiendo que su custodia iba a dar rojo.** El motivo del corte es real (el canal por el que escribo archivos tiene un limite de tamano y 105 KB no entraban) y no alcanza como justificacion: lo que corresponde es declararlo antes de que lo encuentre el auditor, que es lo que hizo la seccion 1.1 en su version anterior. El rojo salio exactamente donde estaba anunciado y se cerro en el commit siguiente. **Aprendizaje que si es nuevo:** anunciar un rojo no equivale a evitarlo, y un head con un job rojo es un head que un tercero puede citar como incumplimiento con razon.
+27. **Al sincronizar este informe con el resultado del CI, mi script de edicion aborto en un `assert`** porque el archivo de mi sandbox no era el mismo que el pusheado: habia aplicado las ediciones de la revision 3 solo en el payload del push y no en el arbol local. O sea que por un rato tuve **dos versiones del informe otra vez**, que es A1 en su forma original, dentro del turno que lo estaba corrigiendo. Lo bueno: el `assert` fallo y no escribio nada. Lo malo: ese assert lo puse por costumbre y no como control. Regla que sale: **editar el archivo local y pushear el archivo local; nunca construir el contenido en el payload.**
 
 ## 9. Reproduccion
 
@@ -279,12 +287,11 @@ bash scripts/cerrar.sh --regenerar
 ## 10. Veredicto
 
 La Fase 0 esta implementada y sus ocho hallazgos de codigo (B1-B8) estan cerrados
-con tests que pueden dar rojo. Los seis hallazgos de proceso (A1 y D1-D5) estan
-cerrados con **instrumentos**, no con disciplina, y cada instrumento se probo en su
-direccion negativa. En esta corrida, sobre el arbol convergido: **128 tests en
-verde, 7/7 mutaciones cazadas por su test nominal, inventario e informe
-consistentes entre si**. Lo que falta cerrar en el repo esta en 1.1, con nombre y
-con el comando que lo cierra.
+con tests que pueden dar rojo, y eso ya no es una afirmacion propia: **el job
+`suite` de un runner limpio lo verifico sobre el arbol corregido**. Los seis
+hallazgos de proceso (A1 y D1-D5) estan cerrados con **instrumentos**, no con
+disciplina, y cada instrumento se probo en su direccion negativa; el de D2 se probo
+solo, en produccion, en su primera oportunidad.
 
 Lo que sigue sin medirse no se movio ni un milimetro: **funcionamiento contra APIs
 reales, calidad semantica, tasa de cache y mercado**. Una de cuatro arquitecturas
