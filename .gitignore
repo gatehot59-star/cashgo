@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*.sqlite3
+salidas/
+artefactos/
+# Fixtures generados: los datos de prueba viven como codigo en
+# fase0/fixtures/generar.py, no como JSON pegado que nadie vuelve a leer.
+fase0/fixtures/ads_archive_sample.json
+fase0/fixtures/brief_ejemplo.json

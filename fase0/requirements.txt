@@ -1,0 +1,6 @@
+# Pins exactos, verificados en vivo el 2026-09-06 contra las versiones instaladas
+# y probadas en el sandbox donde corrio la suite. Nada de rangos: un rango es una
+# entrega que compila hoy y no manana.
+pydantic==2.13.4
+weasyprint==69.0
+pypdf==6.14.2
