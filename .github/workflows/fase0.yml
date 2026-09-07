@@ -16,8 +16,17 @@ on:
 # Ahora hay un job por PREGUNTA:
 #   custodia    -> los recibos describen este arbol?  (documental)
 #   suite       -> el codigo funciona?                (funcional)
-#   dependencias-> hay CVEs en el arbol de deps?      (seguridad, no determinista)
+#   deps-pins   -> hay CVEs en LO QUE PINNEAMOS?      (seguridad, nuestra culpa)
+#   deps-arbol  -> hay CVEs en el arbol transitivo?   (seguridad, no lo controlamos)
 #   secretos    -> hay credenciales en el historial?  (seguridad, determinista)
+#
+# Y LOS DE DEPENDENCIAS SE PARTIERON EN DOS POR LA MISMA RAZON, UNA VUELTA MAS:
+# `dependencias` dio failure y el veredicto no decia si el CVE estaba en un paquete
+# que NOSOTROS pinneamos o en uno que arrastra la cadena. Son dos problemas con dos
+# arreglos distintos: el primero se arregla subiendo un pin nuestro; el segundo se
+# arregla pinneando algo que hoy flota, o esperando al upstream. Un solo veredicto
+# para los dos obliga a abrir el log, y abrir el log no es un instrumento: es un
+# humano leyendo.
 #
 # LOS DOS DE SEGURIDAD ESTABAN EN UN SOLO JOB Y DURO UNA CORRIDA. Dio `failure` y
 # el veredicto no decia CUAL de los dos habia fallado: para saberlo hacia falta
@@ -119,8 +128,8 @@ jobs:
           path: artefactos/
           retention-days: 14
 
-  dependencias:
-    name: dependencias (CVEs) - BLOQUEANTE
+  deps-pins:
+    name: deps-pins (CVEs en lo que pinneamos) - BLOQUEANTE
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -129,27 +138,47 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Sin `continue-on-error`: este paso ES un porton.
+      # `--no-deps` audita EXACTAMENTE los tres paquetes de requirements.txt y nada
+      # mas. Es lo que esta bajo nuestro control directo, y por eso su rojo tiene un
+      # dueno claro: subir un pin nuestro.
       #
-      # MEDICION PREVIA de las tres dependencias DIRECTAS (2026-09-07, en vivo):
+      # MEDICION PREVIA (2026-09-07, en vivo contra OSV/GHSA):
       #   pydantic 2.13.4 .... sin vulnerabilidades conocidas
       #   weasyprint 69.0 .... es LA VERSION QUE ARREGLA CVE-2026-49452
-      #                        (inyeccion de CSS via presentational hints, <= 68.1)
       #   pypdf 6.14.2 ....... es LA VERSION QUE ARREGLA CVE-2026-59935
-      #                        (bucle infinito ASCII85/ASCIIHex, < 6.14.2, CVSS 8.7)
+      # O sea que este job deberia dar VERDE. Si da rojo, aparecio un CVE nuevo en
+      # los tres dias siguientes a esa medicion, y eso es exactamente la clase de
+      # aviso por el que un porton de dependencias existe.
+      - name: pip-audit solo sobre los tres pines propios
+        run: |
+          pip install pip-audit
+          pip-audit -r fase0/requirements.txt --no-deps --strict
+
+  deps-arbol:
+    name: deps-arbol (CVEs en el arbol transitivo) - BLOQUEANTE
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Sin `--no-deps`: audita el ARBOL COMPLETO. weasyprint arrastra Pillow,
+      # tinycss2, cssselect2, pyphen, fonttools, pydyf y cffi; pydantic arrastra
+      # pydantic-core, annotated-types y typing-extensions. NINGUNO de esos esta
+      # pinneado en requirements.txt.
       #
-      # Y LO QUE ESA MEDICION NO CUBRIO, que es el hueco que este job existe para
-      # tapar: pip-audit audita el ARBOL COMPLETO de dependencias, no las tres
-      # directas. weasyprint arrastra tinycss2, cssselect2, pyphen, fonttools y
-      # pydyf; pydantic arrastra pydantic-core, annotated-types y typing-extensions.
-      # Un CVE en cualquiera de esas es un CVE de este proyecto, y yo verifique tres
-      # paquetes y hable como si hubiera verificado el conjunto. Este job es lo
-      # unico que mide el conjunto.
+      # ESE ES EL HALLAZGO QUE ESTE JOB DESNUDA, Y ES MIO: el informe dice "pins
+      # exactos, nada de rangos" y eso es cierto de las TRES dependencias directas.
+      # El resto del arbol FLOTA. Verifique tres paquetes y hable como si hubiera
+      # verificado el conjunto: E-01, medir el sujeto chico y concluir sobre el
+      # grande. Este job mide el conjunto.
       #
-      # `--strict` incluido a proposito: si pip-audit no puede resolver o auditar
-      # alguna dependencia, eso es un NO MEDIDO y un NO MEDIDO no puede pasar por
-      # verde en un porton de seguridad.
-      - name: pip-audit sobre el arbol completo de dependencias
+      # Se separa de deps-pins porque su rojo NO se arregla igual: no hay un pin
+      # nuestro que subir, hay que decidir si se pinnea algo que hoy flota (y
+      # asumir el mantenimiento) o si se espera al upstream.
+      - name: pip-audit sobre el arbol completo
         run: |
           pip install pip-audit
           pip-audit -r fase0/requirements.txt --strict
