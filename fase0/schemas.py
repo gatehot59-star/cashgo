@@ -91,8 +91,10 @@ def normalizar(texto: str) -> str:
     que se delimitan los bloques enviados al modelo. Determinista e idempotente.
 
     La neutralizacion de `<<<` y `>>>` cierra el vector B3 (contaminacion cruzada
-    intra-lote): si la secuencia no puede aparecer en el copy, ningun anuncio
-    puede fabricar un bloque atribuido a otro anunciante.
+    intra-lote): si la secuencia no puede aparecer en NINGUN campo que se
+    interpole en el bloque, ningun anuncio puede fabricar un bloque atribuido a
+    otro anunciante. La palabra "NINGUN" es de H-01: la version anterior de este
+    docstring decia "en el copy", y el copy era uno de tres.
     """
     limpio = _CONTROL.sub(" ", texto)
     limpio = _SECUENCIA_DELIMITADOR.sub(lambda m: m.group(0)[0] * 2, limpio)
@@ -115,7 +117,8 @@ class AnuncioCrudo(BaseModel):
     plataformas: tuple[str, ...] = ()
     snapshot_url: str = ""
 
-    @field_validator("cuerpos", "titulos", "descripciones", mode="before")
+    @field_validator("cuerpos", "titulos", "descripciones", "plataformas",
+                     mode="before")
     @classmethod
     def _limpiar_listas(cls, v: object) -> tuple[str, ...]:
         if v is None:
@@ -124,9 +127,29 @@ class AnuncioCrudo(BaseModel):
             v = [v]
         return tuple(normalizar(str(x)) for x in v if str(x).strip())
 
-    @field_validator("page_name", mode="before")
+    # H-01 (auditoria independiente de Tao, 2026-09-07): la correccion B3 neutralizo
+    # `<<<` en el COPY y declaro cerrado el vector. La premisa era verdadera y la
+    # conclusion no se seguia: `cognitive.formatear_anuncio` interpola TRES valores
+    # en el bloque que va al modelo (`ad_id`, `plataformas` y el copy), y solo uno
+    # tenia validador. O sea que la promesa del comentario era mas amplia que su
+    # alcance, que es el patron 2 de este registro con otra ropa.
+    #
+    # MEDIDO SOBRE EL ARBOL REAL, y el efecto es peor que el reportado: en un lote
+    # de dos anuncios, el payload en `ad_id` produjo TRES bloques, y el fabricado
+    # nombraba el `ad_id` de un competidor legitimo del mismo lote. Como ese ad_id
+    # SI estaba en la entrada, `_verificar_cobertura` no podia frenarlo, y como la
+    # regla de B2 es "gana la primera ocurrencia" y el bloque fabricado va antes,
+    # **la promesa que quedaba impresa en el PDF la escribia el atacante**:
+    # 'producto defectuoso, no compren nunca' atribuido a la victima. El guard de
+    # B2 jugaba a favor del atacante.
+    #
+    # `page_id` entra tambien porque alimenta el `content_hash` del dedup. La
+    # neutralizacion es no-op sobre identificadores normales y eso esta medido con
+    # un test de no regresion del hash: si se moviera, la proxima corrida re-pagaria
+    # tokens por todo el corpus.
+    @field_validator("page_name", "ad_id", "page_id", mode="before")
     @classmethod
-    def _limpiar_nombre(cls, v: object) -> str:
+    def _limpiar_texto(cls, v: object) -> str:
         return normalizar(str(v or ""))
 
     @property
@@ -186,11 +209,12 @@ def sin_urls(texto: str) -> str:
     """
     Reemplaza cualquier URL por el marcador [enlace].
 
-    Se aplica SOLO a los campos de texto libre que terminan impresos en el
-    informe que ve el cliente. Motivo: ese texto sale del copy de un competidor,
-    y una URL ajena dentro de un PDF comercial que firmamos nosotros es, en el
-    mejor caso, ruido que abarata el entregable, y en el peor un enlace que un
-    cliente clickea porque venia en un documento nuestro.
+    Se aplica a los campos de texto libre que terminan impresos en el informe que
+    ve el cliente: `promesa`, `publico_sugerido` y la `narrativa` (esta ultima por
+    H-03, que la encontro afuera del filtro). Motivo: ese texto sale del copy de un
+    competidor, y una URL ajena dentro de un PDF comercial que firmamos nosotros
+    es, en el mejor caso, ruido que abarata el entregable, y en el peor un enlace
+    que un cliente clickea porque venia en un documento nuestro.
 
     No reemplaza al escapado de HTML: son dos capas distintas. El escapado impide
     que el texto se ejecute; esto impide que el texto invite a navegar.
