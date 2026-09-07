@@ -1,6 +1,6 @@
 # INFORME TECNICO DE AUDITORIA · PROYECTO CASHGO
 
-**Revision:** 3 · **Rama:** `titan/auditoria-cashgo`
+**Revision:** 4 · **Rama:** `titan/auditoria-cashgo` · **Head:** `f86af71`
 **Artefacto de custodia:** `evidencia/MANIFEST.sha256`
 **Autor:** BRAIN (agente). **No es independiente.**
 
@@ -30,32 +30,29 @@ Tres hechos de esa pasada, sin suavizar:
 Esta revision no discute nada de eso. Lo corrige con instrumentos y declara que la
 **rubrica externa vigente sigue siendo 88/100** hasta que haya tercera pasada.
 
-### 1.1 El CI de este head, medido: `suite` VERDE y `custodia` ROJA
+### 1.1 Estado del CI en el head `f86af71`, por job y sin maquillar
 
-Predije este resultado en el commit anterior y salio exactamente asi. Runs
-`34088020557` (push) y `34088017038` (PR), los dos con el mismo veredicto por job:
+Cinco jobs, uno por pregunta. **Tres verdes y dos rojos**, y los dos rojos no son
+lo mismo: uno es un guard que funciona, el otro es un diagnostico que no tengo.
 
-| Job | Resultado | Duracion | Que significa |
-|---|---|---|---|
-| `suite (el codigo funciona)` | **success** | 56 s | 128 tests, control positivo 7/7, pipeline, PDF y modelos de costo verificados **por instrumento ajeno** sobre el arbol corregido |
-| `custodia (recibos vs arbol)` | **failure** | 6 s | los recibos de `evidencia/` y el `MANIFEST.sha256` eran los del head anterior |
+| Job | Que pregunta | Resultado |
+|---|---|---|
+| `custodia` | los recibos describen este arbol? | **success** |
+| `suite` | el codigo funciona? | **success** |
+| `secretos` | hay credenciales en el historial? | **success** |
+| `deps-pins` | hay CVEs en nuestros 3 pines? | **failure** |
+| `deps-arbol` | hay CVEs en el arbol transitivo? | **failure** |
 
-El rojo de custodia se cerro dos commits despues y el head `9eda69a` dio **los dos
-jobs en success**. Desde el head de esta seccion hay **un tercer job, `seguridad`**,
-y esta bloqueante: ver 5.4.
+**Lo que se puede afirmar del verde.** `suite` verifica por instrumento ajeno los
+128 tests, el control positivo 7/7, el pipeline, el PDF y los modelos de costo sobre
+el arbol corregido. `secretos` dio verde en **cuatro corridas seguidas** con
+`fetch-depth: 0`, o sea sobre los **30 commits del historial** y no sobre el arbol:
+eso cierra un NO MEDIDO real, porque mi escaneo propio cubria los 44 archivos del
+arbol y un secreto commiteado y borrado despues no aparece ahi.
 
-**Esto es lo mas importante de esta revision, y no es una correccion: es una
-medicion.** Con el job unico de `de13b9a6`, un defecto documental de una linea dejo
-`skipped` la verificacion de ocho correcciones de codigo, y durante horas nadie
-pudo saber si B1-B8 funcionaban. Con el workflow partido, el mismo tipo de defecto
-documental convivio con un **verde funcional legible**: el rojo de custodia no tapo
-nada. D2 se demostro a si mismo en su primera oportunidad, y esa es la unica clase
-de evidencia que vale para un arreglo de proceso.
-
-El rojo de custodia se cierra regenerando los recibos con
-`bash scripts/cerrar.sh --regenerar`, que es lo que hace el commit que trae esta
-seccion. **Los dos jobs verdes sobre el mismo head es la condicion para declarar el
-head verificado**, y esa condicion ahora se lee sin abrir un log.
+**Lo que NO se puede afirmar del rojo, y es el estado honesto de este head:** los
+dos jobs de dependencias estan rojos y **no se por que**. Ver 5.5, que es la seccion
+mas importante de esta revision precisamente porque termina en un no-medido.
 
 ## 2. Que cambio, y por que cada cambio es un instrumento y no una promesa
 
@@ -63,11 +60,11 @@ head verificado**, y esa condicion ahora se lee sin abrir un log.
 |---|---|---|
 | **B (informe ≠ CSV ≠ arbol)** | se decide `fase0/fixtures/__init__.py` (conserva su docstring, 1 linea) y se regenera TODO junto con `scripts/cerrar.sh` | `scripts/informe_vs_csv.py` da rojo si la fila TOTAL del informe no sale del CSV |
 | **D1 (CSV contaminado)** | `inventario.py --csv` manda los mensajes de guard a **stderr**; stdout es CSV y nada mas | el CSV commiteado ya no tiene la linea `GUARD VERDE`; un parser lo lee entero |
-| **D2 (un job secuencial ciega el codigo)** | el workflow se parte en **jobs paralelos**: `custodia`, `suite` y ahora `seguridad` | **medido en 1.1**: custodia roja y suite verde en el mismo head, sin ocultarse |
+| **D2 (un job secuencial ciega el codigo)** | el workflow se parte en **cinco jobs paralelos, uno por pregunta** | **medido tres veces**: cada particion volvio legible un rojo que antes obligaba a abrir el log (1.1 y 5.5) |
 | **D3 (el control positivo muta el arbol real)** | aborta con exit 2 si `git status --porcelain` no esta limpio en los 3 archivos que muta; restauracion doble (copia + `git checkout --`); trap en EXIT, INT y TERM | probado en los dos sentidos: arbol limpio -> 7/7 cazadas; archivo sucio a proposito -> **exit 2, "No se midio nada"** |
 | **D4 (descripcion del PR obsoleta)** | cuerpo del PR reescrito al alcance real | la pagina del PR ya no dice "cero codigo de producto" |
 | **D5 (8 commits de convergencia a mano)** | `scripts/cerrar.sh`: regenera los recibos y **despues** exige `git status` limpio. Instalable como hook `pre-push` | A1 pasa a darse rojo antes del push en vez de despues (ver defecto 24) |
-| **D5 bis (los controles de seguridad no eran controles)** | `pip-audit` y `gitleaks` **bloqueantes**, en el job `seguridad`, con `fetch-depth: 0` | se midio antes de bloquear: ver 5.4 |
+| **D5 bis (los controles de seguridad no eran controles)** | `pip-audit` y `gitleaks` **bloqueantes**, en tres jobs propios, con `fetch-depth: 0` | `secretos` VERDE ajeno 4 corridas; el rojo de deps queda NO MEDIDO y declarado (5.4 y 5.5) |
 | **A1 preventivo** | `.gitattributes` con `* text=auto eol=lf` | ningun hash del manifiesto depende de la plataforma del clon (ver defecto 23) |
 
 ### 2.1 Lo que NO se hizo, y por que
@@ -127,10 +124,10 @@ dio `failure` en los runs `34084699103` y `34084702756`, con todo lo funcional e
 `skipped`. Cualquier lectura de "verificado por CI ajeno" en la revision 2 valia
 para `31178a1` y no para el arbol corregido: el auditor lo marco y es correcto.
 
-Con el workflow partido la afirmacion es por job, y ya esta medida: **`suite`
-success en 56 s** significa que el codigo funciona sobre el arbol corregido;
-**`custodia` failure en 6 s** significaba que los recibos eran viejos. Los numeros
-completos estan en 1.1.
+Con el workflow partido la afirmacion es **por job**, y esa es la unica forma en que
+este dossier puede hablar del CI sin mentir por agregacion: un veredicto unico sobre
+cinco preguntas distintas obliga a elegir entre "todo verde" y "algo esta mal", y
+ninguna de las dos describe el head. Los cinco resultados estan en 1.1.
 
 ### 5.2 Instrumento propio, con evidencia cruda (W-01)
 
@@ -181,60 +178,107 @@ ejecutan ningun trap, asi que pueden dejar un mutante vivo. Lo que cambia es que
 proxima corrida **se niega a arrancar** en vez de medir sobre un arbol contaminado,
 y `custodia` lo enrojece en el CI. Chequeo manual: `grep -rn "# MUTANTE" fase0`.
 
-### 5.4 Seguridad: los dos controles pasan de aviso a porton
+### 5.4 Los controles de seguridad pasan de aviso a porton
 
-Hasta este head, `pip-audit` y `gitleaks` corrian con `continue-on-error: true`. La
-consecuencia exacta, dicha sin adorno: **podian haber estado fallando desde el
-primer dia y el job igual daba verde.** No eran controles, eran decoracion con
-forma de control, y por eso su resultado figuraba como NO MEDIDO.
+Hasta el head anterior, `pip-audit` y `gitleaks` corrian con `continue-on-error:
+true`. La consecuencia, dicha completa y no como matiz: **podian haber estado
+fallando desde el primer dia y el job igual daba verde**, y nadie lo hubiera sabido
+porque nunca lei su salida. Un paso de CI que no puede hacer fallar el job es el
+defecto 10 de este registro (guard con rama inalcanzable) disfrazado de una linea de
+YAML.
 
-Ahora los dos son **bloqueantes**, en un **tercer job aparte** llamado `seguridad`.
+Ahora son **tres jobs bloqueantes** y sin una sola excepcion en todo el workflow:
+`deps-pins`, `deps-arbol` y `secretos`.
 
-**Por que se midio antes de bloquear.** Volver bloqueante un control cuyo resultado
-no se conoce no es rigor: es cambiar un adorno por una ruleta, y la primera corrida
-roja te obliga a decidir apurado sobre un CVE que no leiste. Asi que primero se
-midio, y el resultado es mas interesante que un simple "esta limpio":
+**Secretos: cerrado y verde por instrumento ajeno.** Antes de bloquear se corrio un
+escaneo propio con 13 reglas de alta senal de gitleaks (PAT de GitHub clasico y
+fine-grained, tokens de app y OAuth, AWS, OpenAI, Slack, Google, Stripe, bloques de
+clave privada, JWT, token de Meta y asignacion generica de
+`api_key`/`secret`/`token`/`password`) sobre los 44 archivos del arbol: **cero
+hallazgos**, y con control positivo, porque un canario `sk-` de 32 caracteres fue
+cazado por dos reglas. Sin ese canario, "cero hallazgos" no distingue un arbol
+limpio de un escaneo roto.
 
-| Dependencia | Estado | Detalle |
-|---|---|---|
-| `pydantic==2.13.4` | sin vulnerabilidades conocidas | — |
-| `weasyprint==69.0` | **es la version que ARREGLA** CVE-2026-49452 | inyeccion de CSS via presentational hints, afecta `<= 68.1`. GHSA-jhhc-3hcp-qhm5 |
-| `pypdf==6.14.2` | **es la version que ARREGLA** CVE-2026-59935 | bucle infinito con inline images ASCII85/ASCIIHex al extraer texto, afecta `< 6.14.2`, CVSS 8.7. GHSA-g867-7843-wf8q |
+Y el limite de esa medicion propia era real: cubria el **arbol**, no el
+**historial**. Un secreto que entro en un commit y se borro en el siguiente no
+aparece en el arbol y sigue vivo en los 30 commits. Eso solo lo ve `gitleaks` con
+`fetch-depth: 0`, que es como quedo configurado, y **dio verde en cuatro corridas
+seguidas**. Ese tramo pasa de NO MEDIDO a medido.
 
-**Y las dos no son casualidad, son las dos rutas que este codigo recorre:** el
-pipeline **renderiza HTML construido con texto de terceros** (weasyprint) y los
-tests **extraen texto de un PDF** (pypdf). O sea que los pines exactos que ya
-estaban en `requirements.txt` por disciplina de reproducibilidad resultaron ser,
-medido, los que esquivan dos vulnerabilidades sobre superficie real. Es el mejor
-argumento a favor de pinnear exacto que produjo este proyecto, y salio de mirar el
-control en vez de asumirlo.
+**Dependencias: el detalle completo esta en 5.5**, incluida una hipotesis mia que el
+instrumento falso y el estado no-medido en el que quedo.
 
-**Escaneo de secretos, medido con control positivo.** Se corrio un escaneo propio
-con 13 reglas de alta senal de gitleaks (PAT de GitHub clasico y fine-grained,
-tokens de app y OAuth, AWS, OpenAI, Slack, Google, Stripe, bloques de clave
-privada, JWT, token de Meta y asignacion generica de `api_key`/`secret`/`token`/
-`password`) sobre los 44 archivos del arbol: **cero hallazgos**. Y el escaneo es
-falsable: un canario `sk-` de 32 caracteres fue cazado por dos reglas. Sin ese
-canario, "cero hallazgos" no distinguiria un arbol limpio de un escaneo roto.
+**Consecuencia de diseno que hay que declarar porque cambia el contrato del CI:**
+`pip-audit` consulta una base de datos viva, asi que los dos jobs de dependencias
+son **los unicos pasos no deterministas del CI**. Un CVE publicado manana pone el
+repo en rojo sin que nadie toque una linea. Eso es exactamente lo que se le pide a
+una auditoria de dependencias, y es la razon por la que su rojo vive en jobs
+separados: no debe confundirse con "el codigo se rompio" ni con "alguien filtro una
+credencial", que son tres emergencias con tres respuestas distintas.
 
-**LIMITE DECLARADO de esa medicion propia, y es la razon por la que el paso ajeno
-hace falta igual:** cubre el **arbol**, no el **historial** de 30 commits. Un
-secreto que entro en un commit y se borro en el siguiente **no aparece en el arbol
-y sigue vivo en el historial**. Eso solo lo ve `gitleaks` con `fetch-depth: 0`, que
-es como quedo configurado. Su primer veredicto sobre el historial completo sigue
-siendo, honestamente, **un estado no medido hasta que ese job corra**.
+### 5.5 El rojo de dependencias: lo que hice, lo que descarte y lo que NO se
 
-**Consecuencia declarada del cambio, porque altera el contrato del CI:**
-`pip-audit` consulta una base de datos viva, asi que es **el unico paso del CI que
-no es determinista**. Un CVE publicado manana pone el repo en rojo sin que nadie
-toque una linea. Eso es exactamente lo que se le pide a una auditoria de
-dependencias, y es la razon del job separado: ese rojo **no debe confundirse con
-"el codigo se rompio"**. Tres jobs, tres preguntas ortogonales, tres veredictos que
-se leen sin abrir un log:
+Este es el unico tramo del dossier donde el proceso importa mas que el resultado,
+porque el resultado es **NO MEDIDO** y el camino explica por que eso es un estado
+legitimo y no una excusa.
 
-    custodia   -> los recibos describen este arbol?
-    suite      -> el codigo funciona?
-    seguridad  -> hay CVEs o secretos?
+**Paso 1. Medir antes de bloquear.** Verificado en vivo contra OSV/GHSA/NVD:
+
+| Dependencia | Estado |
+|---|---|
+| `pydantic==2.13.4` | sin vulnerabilidades conocidas |
+| `weasyprint==69.0` | **es la version que ARREGLA** CVE-2026-49452 (inyeccion de CSS via presentational hints, afecta `<= 68.1`) |
+| `pypdf==6.14.2` | **es la version que ARREGLA** CVE-2026-59935 (bucle infinito ASCII85/ASCIIHex al extraer texto, `< 6.14.2`, CVSS 8.7) |
+
+Y las dos ultimas no son casualidad: son **las dos rutas que este codigo recorre**.
+El pipeline renderiza HTML construido con texto de terceros (weasyprint) y los tests
+extraen texto de un PDF (pypdf). Los pines exactos que estaban por disciplina de
+reproducibilidad resultaron ser, medido, los que esquivan dos vulnerabilidades sobre
+superficie real.
+
+**Paso 2. Bloquear, y que de rojo.** Al quitar `continue-on-error` el job de
+seguridad dio failure. Correcto: eso es lo que hace un porton.
+
+**Paso 3. Partir el job para saber DONDE, en vez de adivinar.** El primer veredicto
+decia `failure` sin decir si el CVE estaba en pip-audit o en gitleaks. Se partio en
+`dependencias` y `secretos`: gitleaks verde, pip-audit rojo. Y despues se partio
+otra vez en `deps-pins` (`--no-deps`, solo nuestros 3 pines) y `deps-arbol` (arbol
+completo), porque su rojo **no se arregla igual**: uno se arregla subiendo un pin
+nuestro, el otro obliga a decidir si se pinnea algo que hoy flota.
+
+**Paso 4. El dato que la particion regalo.** Fallan **los dos**, incluido el que
+solo mira los tres pines que acabo de verificar limpios. Eso descarta "hay un CVE en
+un paquete nuestro" **sin leer un log**, y manda a buscar al entorno. Con el job
+unico, el candidato obvio habria sido subir un pin que estaba bien.
+
+**Paso 5. Una hipotesis, y el instrumento la FALSA.** `actions/setup-python@v6` no
+instala el pip de PyPI: usa el que quedo horneado en el toolchain (pip 26.0.1 para
+Python 3.12), y ese pip tiene CVE-2026-3219, arreglado en 26.1. pip-audit audita el
+pip del entorno donde corre. La evidencia a favor estaba **en el propio workflow**:
+el job `suite` hace `python -m pip install --upgrade pip` y pasa; los dos de
+dependencias no lo hacian y fallan. Se agrego el upgrade a los dos.
+
+**Resultado: siguen rojos.** La hipotesis queda **refutada por el instrumento**, no
+por una relectura. El `--upgrade` se conserva porque es correcto igual, con su deuda
+declarada en el workflow: es un parche por retraso de la imagen del runner y se saca
+cuando setup-python traiga pip >= 26.1 nativo.
+
+**Paso 6. Donde me quedo sin instrumento, dicho asi.** Para leer el ID exacto del
+CVE hace falta abrir el log del job, y **mis herramientas no pueden hacerlo**. Lo
+correcto es pedirlo, no seguir probando hipotesis contra un porton bloqueante: cada
+intento a ciegas es un commit que ensucia el historial y no mide nada.
+
+**Estado declarado:** la causa del rojo de `deps-pins` y `deps-arbol` es **NO
+MEDIDA**. No es "probablemente el pip del runner": esa hipotesis ya se cayo. Los
+runs a leer son `34122786008` (jobs `101744431975` y `101744432266`).
+
+**Y una consecuencia de diseno que si quedo medida:** el arbol transitivo **flota**.
+`requirements.txt` pinnea tres paquetes; weasyprint arrastra Pillow, tinycss2,
+cssselect2, pyphen, fonttools, pydyf y cffi, y pydantic arrastra pydantic-core,
+annotated-types y typing-extensions. Ninguno esta pinneado. El informe decia "pins
+exactos, nada de rangos" y eso vale para los tres DIRECTOS: verifique tres paquetes
+y hable como si hubiera verificado el conjunto. Es E-01, medir el sujeto chico y
+concluir sobre el grande, en la seccion que mas se jactaba de rigor.
 
 ## 6. Rubrica
 
@@ -244,8 +288,8 @@ criterios que el auditor bajo, y el resultado de eso lo mide el auditor, no yo.
 
 | Criterio | 1a pasada | 2a pasada (vigente) | Que se toco en esta revision |
 |---|---:|---:|---|
-| Ejecutabilidad | 15 | 13 | CI partido en tres jobs, con `suite` success medido sobre el arbol corregido |
-| Seguridad | 12 | 13 | pip-audit y gitleaks pasan de aviso a porton, con la medicion previa de 5.4 |
+| Ejecutabilidad | 15 | 13 | CI partido en cinco jobs; `suite` y `custodia` success. **Dos jobs bloqueantes en rojo sin diagnosticar**: por el estandar de este dossier, eso NO habilita subir este criterio |
+| Seguridad | 12 | 13 | los tres controles pasan de aviso a porton; `secretos` VERDE ajeno sobre el historial. La causa del rojo de deps sigue NO MEDIDA (5.5) |
 | Testing | 12 | 13 | guard de arbol limpio en el control positivo |
 | Proceso QA | 2 | 1 | `informe_vs_csv.py`, `cerrar.sh`, `.gitattributes`, D1, cabeceras de procedencia |
 | Resto | 48 | 48 | — |
@@ -263,10 +307,13 @@ criterios que el auditor bajo, y el resultado de eso lo mide el auditor, no yo.
 8. Residencia de datos (DeepSeek procesa en China, el corpus legal es europeo).
 9. Umbrales exactos del tier estandar de Marketing API.
 10. Formato de anuncio en produccion: ningun campo de `CAMPOS_ADS_ARCHIVE` lo informa, asi que la seccion 4 del PDF sera inerte. Hay que confirmar un campo oficial o retirar la seccion.
-11. Resultados de pip-audit y gitleaks: **ya son un control** (bloqueantes, job
-    `seguridad`, ver 5.4). Lo que queda no medido es mas preciso: **el veredicto de
-    gitleaks sobre el HISTORIAL de 30 commits**. Mi escaneo propio cubrio el arbol
-    (44 archivos, 13 reglas, cero hallazgos, con canario), no el historial.
+11. ~~gitleaks sobre el historial~~ **RESUELTO Y MEDIDO**: verde ajeno en cuatro
+    corridas con `fetch-depth: 0` sobre los 30 commits. Era el tramo que mi escaneo
+    propio no cubria (yo mire los 44 archivos del arbol, no el historial).
+11 bis. **La CAUSA del rojo de `deps-pins` y `deps-arbol`.** Los controles ya son
+    bloqueantes de verdad, o sea que dejaron de ser un adorno; lo que falta es el
+    diagnostico. La hipotesis del pip del runner fue **falsada por el instrumento**.
+    Requiere leer el log de los jobs `101744431975` y `101744432266`. Ver 5.5.
 12. Tercera revision externa de estas correcciones.
 13. Cobertura de lineas: no hay instrumento. 128 tests no son una medida de cobertura.
 14. ~~El CI de este head~~ **RESUELTO Y MEDIDO**: ver 1.1. Se deja tachado en vez de borrado porque un NO MEDIDO que se resuelve es informacion, y borrarlo esconde que hubo un tramo del turno en que la afirmacion no tenia respaldo.
@@ -302,6 +349,9 @@ criterios que el auditor bajo, y el resultado de eso lo mide el auditor, no yo.
 27. **Al sincronizar este informe con el resultado del CI, mi script de edicion aborto en un `assert`** porque el archivo de mi sandbox no era el mismo que el pusheado: habia aplicado las ediciones de la revision 3 solo en el payload del push y no en el arbol local. O sea que por un rato tuve **dos versiones del informe otra vez**, que es A1 en su forma original, dentro del turno que lo estaba corrigiendo. Lo bueno: el `assert` fallo y no escribio nada. Lo malo: ese assert lo puse por costumbre y no como control. Regla que sale: **editar el archivo local y pushear el archivo local; nunca construir el contenido en el payload.**
 28. **Tuve el job `custodia` en rojo dos commits seguidos por no haber diagnosticado primero.** Cuando un guard de custodia da rojo, la primera accion correcta es **enumerar QUE archivo difiere** comparando los blob SHA de git contra el arbol, uno por uno. Eso me tomo una llamada y resolvio el caso (16 coincidian, 2 no: un CSV con CRLF viejo y un recibo sin cabecera). Lo que me costo dos commits fue haber intentado adivinar cual faltaba en vez de medirlo. Es el patron 3 del registro (afirmar un estado sin verificarlo) aplicado a mi propio repo.
 29. **Tuve dos controles de seguridad con `continue-on-error: true` durante todo el proyecto y los presente como parte del CI.** La honestidad estaba a medias: el informe decia "todavia no son un control", y eso es cierto y suena a matiz. Dicho completo es peor: **podian haber estado fallando desde el primer dia y el job igual daba verde**, y nadie lo hubiera sabido porque nunca lei su salida. Un paso de CI que no puede hacer fallar el job es el defecto 10 (guard con rama inalcanzable) con otro disfraz, y esta vez el disfraz era una linea de YAML. Correccion en 5.4: se midio primero, se bloqueo despues, y se separo en su propio job porque su rojo tiene una causa distinta al de la suite.
+30. **Reincidencia EXACTA del 27, dos horas despues de escribirlo y en el mismo archivo.** Volvi a construir las ediciones del informe dentro del payload del push en vez de editarlas en el arbol local, asi que hubo otra vez dos versiones del informe y el manifiesto firmaba la mia. El 27 termina con la regla textual "editar el archivo local y pushear el archivo local". La escribi, la publique, y la incumpli en el turno siguiente. Lo que esto agrega al registro y no estaba: **escribir la regla no la instala.** Ninguna de las veces que anote A1 la detuvo; la detuvieron los guards que dan rojo.
+31. **La misma falla otra vez, en el workflow, y esta vez rompio `custodia` en el CI.** Cuarta aparicion en un turno. La causa raiz es estructural y conviene decirla sin excusa: mi canal de escritura toma el contenido como texto en la llamada, asi que **cada push es una re-transcripcion**, y transcribir 11 KB a mano falla. Dos correcciones que si son instrumentos, no intenciones: (a) **verificar el blob SHA-1 despues de cada push** (asi cace tres de las cuatro), y (b) **acortar el archivo**, que paso de 11.408 a 5.285 bytes moviendo el razonamiento largo a este informe, que es donde se audita. Reducir la superficie de una falla que ya se repitio cuatro veces no es cosmetica.
+32. **Escribi `scripts/vs_remoto.py`, lo probe en sus tres estados y NO lo entregue.** El guard que faltaba es el que compara el arbol contra el REMOTO: `cerrar.sh` compara el arbol contra los recibos, y nada comparaba contra lo pusheado, que es exactamente el hueco de los defectos 27, 30 y 31. Lo escribi, lo corri, y da verde con hashes coincidentes, rojo con uno alterado, y exit 2 con listado vacio (un listado vacio es NO MEDIDO, no "todo bien"). **Lo saque del commit a proposito**: agregar un script cambia inventario, informe y manifiesto, y la prioridad del turno era diagnosticar el porton rojo. Va declarado aca en vez de mencionarlo como si estuviera entregado, que seria el defecto 5 del patron (haber escrito algo no es haberlo entregado).
 
 ## 9. Reproduccion
 
@@ -351,7 +401,7 @@ bash scripts/cerrar.sh --regenerar
 10. **Cambiar un numero de la fila TOTAL de este informe: `informe_vs_csv.py` exit 1.**
 11. **Ensuciar `fase0/report.py` sin commitear: el control positivo aborta con exit 2.**
 12. **Borrar la linea de guard del CSV y volver a generarlo: los bytes tienen que ser identicos** (el guard ya no va a stdout).
-13. **Bajar `pypdf` a 6.14.1 en `requirements.txt`: el job `seguridad` debe dar rojo por CVE-2026-59935.** Es el control positivo del porton nuevo, y no lo corri: queda como verificacion adversarial para el auditor.
+13. **Bajar `pypdf` a 6.14.1 en `requirements.txt`: `deps-pins` debe reportar CVE-2026-59935.** Es el control positivo del porton nuevo y no lo corri, asi que queda para el auditor. Ojo con la lectura: ese job **ya esta rojo por otra causa sin diagnosticar** (5.5), asi que este control no se puede validar por el color del job sino por el ID del CVE en su salida.
 
 ## 10. Veredicto
 
@@ -363,6 +413,11 @@ instrumento se probo en su direccion negativa; el de D2 se probo solo, en
 produccion, en su primera oportunidad. Y los dos controles de seguridad dejaron de
 ser un aviso: ahora pueden hacer fallar el CI, con la medicion previa que justifica
 bloquearlos en 5.4.
+
+**El estado de este head en una linea:** tres jobs verdes por instrumento ajeno
+(codigo, custodia e historial de secretos), y dos rojos cuya causa es NO MEDIDA
+porque se me acabo el instrumento, no las hipotesis. La diferencia entre esas dos
+frases es todo lo que este dossier intenta sostener.
 
 Lo que sigue sin medirse no se movio ni un milimetro: **funcionamiento contra APIs
 reales, calidad semantica, tasa de cache y mercado**. Una de cuatro arquitecturas
