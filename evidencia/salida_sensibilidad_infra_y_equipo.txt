@@ -1,0 +1,107 @@
+# EVIDENCIA CRUDA - VERBATIM, SIN RECORTAR (W-01)
+# Instrumento: scripts/sensibilidad_infra_y_equipo.py
+# Corrido por: BRAIN, en su sandbox (Python 3.12), 2026-09-06
+# Comando: python3 scripts/sensibilidad_infra_y_equipo.py
+# Exit code: 0
+# Los tres numeros del contraste (6,6x de infra / 82,14% de margen con su stack /
+# 30 semanas-persona) se recomputan desde aca.
+
+==============================================================================
+A) COSTO DE INFRA: MI STACK vs EL STACK DEL BLUEPRINT
+==============================================================================
+
+  Mi stack (3 componentes):
+    Postgres administrado............................... USD   25.00
+    1 worker + scheduler................................ USD   20.00
+    Object storage + egress............................. USD   15.00
+    TOTAL............................................... USD   60.00
+
+  Stack del blueprint (14 componentes):
+    Postgres administrado............................... USD   25.00
+    Redis administrado.................................. USD   15.00
+    API Gateway (Kong/Traefik gestionado)............... USD   40.00
+    Auth gestionado (Clerk/Auth0) tier pago............. USD   25.00
+    NATS JetStream (nodo)............................... USD   20.00
+    Pool de Playwright (contenedores + CPU)............. USD   60.00
+    Proxies residenciales rotativos..................... USD   75.00
+    Servicio orquestador IA............................. USD   20.00
+    Servicio guardrail/finanzas......................... USD   15.00
+    Servicio MCP gateway................................ USD   15.00
+    Watchdog (proceso aislado).......................... USD   10.00
+    Sentry (tier pago).................................. USD   26.00
+    Grafana Cloud + Prometheus.......................... USD   29.00
+    Web app Next.js..................................... USD   20.00
+    TOTAL............................................... USD  395.00
+
+  Factor: el blueprint cuesta 6.6x mi stack en infra.
+  (K8s NO esta contado: el blueprint lo pone como destino, no como MVP.)
+
+==============================================================================
+B) BARRIDO: A QUE COSTO DE INFRA SE ROMPE 'RENTABLE DESDE EL DIA 1'
+   Ingreso fijo del modelo: USD 2370.00/mes (30 x USD 79). Ventana PEAK.
+==============================================================================
+
+   infra USD/mes  total USD/mes  % del total    margen  breakeven
+  ----------------------------------------------------------------
+               0          28.20       100.0%    98.81%          1
+              30          58.20        48.5%    97.54%          1
+              60          88.20        32.0%    96.28%          2  <- MI STACK
+              90         118.20        23.9%    95.01%          2
+             120         148.20        19.0%    93.75%          2
+             200         228.20        12.4%    90.37%          3
+             300         328.20         8.6%    86.15%          5
+             400         428.20         6.6%    81.93%          6  <- ~STACK BLUEPRINT
+             500         528.20         5.3%    77.71%          7
+             800         828.20         3.4%    65.05%         11
+           1,200        1228.20         2.3%    48.18%         16
+           2,000        2028.20         1.4%    14.42%         26
+           2,400        2428.20         1.2%    -2.46%         31
+
+  Costo de infra al que el margen cae a 80%: USD    445.80/mes
+  Costo de infra al que el margen cae a 50%: USD   1156.80/mes
+  Costo de infra al que el margen cae a  0%: USD   2341.80/mes
+
+  VEREDICTO A: el blueprint NO rompe el margen. Con su stack de USD 395
+  el margen peak sigue en 82.14%.
+  Lo que cambia es el BREAKEVEN y a que se parece el gasto: el modelo
+  pasa de ser el 32% de la factura al 7%.
+  O sea: los dos coincidimos en que DeepSeek no es el problema, y el
+  blueprint gasta su optimizacion de tokens en el lado chico de la factura.
+
+==============================================================================
+C) EL COSTO QUE EL BLUEPRINT NO PONE EN NINGUNA TABLA: SEMANAS-PERSONA
+==============================================================================
+
+  sprint                                                      sem  sem-persona
+  ----------------------------------------------------------------------------
+  S1-2  Fundaciones (infra, esquema, auth, scraper aislado)     2          5.0
+  S3-4  Arquitectura 2 (lead magnet)                            2          5.0
+  S5-6  Middleware de guardrails + tests                        2          5.0
+  S7-8  MCP gateway + integracion Meta + FSM                    2          5.0
+  S9-10 Arquitectura 1 en modo interno                          2          5.0
+  S11-12 Hardening + piloto cliente externo                     2          5.0
+  ----------------------------------------------------------------------------
+  TOTAL                                                        12         30.0
+
+  El plan declara 12 semanas asumiendo 2.5 devs.
+  Eso son 30 semanas-persona de trabajo.
+  Con UNA persona a tiempo completo: 30 semanas = 6.9 MESES.
+  Con UNA persona al 50% (hay otros proyectos vivos): 13.9 MESES.
+
+  VEREDICTO C: el numero '12 semanas' no es del plan, es del EQUIPO que
+  el plan supone. Si el equipo es uno, el mismo plan es de 6.9 a 13.9 meses,
+  y las Fases 3-4 quedan del otro lado de un ano.
+  Esto NO refuta el blueprint: refuta leerlo como un cronograma.
+EXIT=0
+
+# ---------------------------------------------------------------------------
+# DEFECTO PROPIO CAZADO Y CORREGIDO EN LA MISMA CORRIDA (Bloque 8, patron 1):
+# La primera version del VEREDICTO C imprimia "el mismo plan es de 8 a 17 meses"
+# con los numeros HARDCODEADOS en el string, mientras las dos lineas de arriba
+# calculaban 6,9 y 13,9. O sea: un veredicto que contradecia a su propia
+# medicion, dos lineas mas abajo, en la misma salida. Lo cace releyendo el
+# stdout y no el codigo. Corregido: ahora el veredicto sale del calculo
+# (f-string sobre sp), asi que no puede volver a divergir.
+# Es exactamente el patron "el comentario denso como falsa verificacion":
+# habia escrito la conclusion antes de mirar el numero.
+# ---------------------------------------------------------------------------
