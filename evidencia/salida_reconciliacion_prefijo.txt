@@ -1,0 +1,56 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: script ad-hoc que cruza scripts/modelo_costo_arq3.py con el
+#              prefijo real de fase0/cognitive.py
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Fecha: 2026-09-06
+# Para que: me refuto a mi mismo un supuesto del modelo de costo del mismo dia.
+#
+==============================================================================
+RECONCILIACION: EL PREFIJO QUE MODELE vs EL PREFIJO QUE ESCRIBI
+==============================================================================
+
+  El modelo de costo del 2026-09-06 supuso un prefijo estable de 8.000 tokens
+  (taxonomia + esquema + few-shots). El prefijo que efectivamente escribi en
+  fase0/cognitive.py mide 2678 caracteres, o sea ~669 tokens.
+
+  Sobreestime el prefijo por un factor de 12.0x. La direccion del error
+  es la comoda (el costo real es MENOR que el modelado) y eso no lo vuelve menos
+  error: si hubiera errado para el otro lado, el margen del informe seria falso.
+
+--- OFF-PEAK ---
+  USD modelo/mes con prefijo 8.000 tok (modelado) ..    14.10
+  USD modelo/mes con prefijo 669 tok (real) ......    14.00
+  diferencia .......................................     0.10  (0.7% menos)
+  margen bruto modelado ............................   96.87%
+  margen bruto con el prefijo real .................   96.88%
+
+--- PEAK ---
+  USD modelo/mes con prefijo 8.000 tok (modelado) ..    28.20
+  USD modelo/mes con prefijo 669 tok (real) ......    28.00
+  diferencia .......................................     0.20  (0.7% menos)
+  margen bruto modelado ............................   96.28%
+  margen bruto con el prefijo real .................   96.29%
+
+VEREDICTO: el margen del 96,28% se sostiene y mejora levemente. La conclusion
+de la auditoria ("el costo cognitivo es la palanca chica") no solo aguanta: es
+todavia mas cierta con el prefijo real. Pero el numero 8.000 queda corregido en
+el registro en vez de quedar como si hubiera sido una medicion.
+
+# ---------------------------------------------------------------------------
+# EL SEGUNDO HALLAZGO, QUE NO ESPERABA Y ES MAS INTERESANTE QUE EL PRIMERO:
+#
+# Errar el tamano del prefijo por 12x movio la factura 0,7%.
+#
+# La razon es la tasa de cache hit del 95%: con el prefijo cacheado a USD 0,007
+# por millon contra USD 0,22 de miss, el tamano del prefijo casi no importa. Lo
+# que importa es que sea ESTABLE.
+#
+# Consecuencia de diseno, medida y contraintuitiva: **no vale la pena acortar el
+# prompt de sistema para ahorrar plata.** Si conviene alargarlo con mas ejemplos y
+# definiciones mas precisas, porque la calidad sube y el costo practicamente no se
+# mueve. Lo unico que hay que cuidar con obsesion es que no cambie entre corridas,
+# y de eso se ocupa el SHA-256 pinneado en los tests.
+#
+# Yo habia optimizado la variable equivocada, y el error salio a la luz solo
+# porque comprobe el supuesto del modelo contra el codigo que escribi despues.
+# ---------------------------------------------------------------------------

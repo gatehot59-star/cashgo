@@ -1,0 +1,60 @@
+name: fase0
+
+on:
+  push:
+    branches: ["main", "titan/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  suite:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # WeasyPrint necesita las libs nativas de Pango/Cairo. Sin esto el import
+      # falla con un error de ctypes que no menciona a WeasyPrint y se pierden
+      # veinte minutos buscando en el lugar equivocado.
+      - name: Dependencias nativas de WeasyPrint
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libffi8 fonts-dejavu-core
+
+      - name: Dependencias de Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r fase0/requirements.txt
+
+      - name: Generar fixtures (datos de prueba como codigo)
+        run: python -m fase0.fixtures.generar
+
+      # Ninguna de las dos tandas toca la red: el pipeline corre contra fixture y
+      # el modelo se reemplaza por un clasificador de reglas. Es la propiedad que
+      # hace que este CI sea util en un fork y en un PR de alguien de afuera.
+      - name: Suite (100 tests, sin red)
+        run: python -m unittest discover -s fase0/tests -t . -v
+
+      - name: Control positivo (la suite tiene que poder dar rojo)
+        run: bash scripts/control_positivo_suite.sh
+
+      - name: Pipeline end to end + PDF
+        run: |
+          python -m fase0.pipeline fase0/fixtures/brief_ejemplo.json \
+            --dry-run fase0/fixtures/ads_archive_sample.json \
+            --salida artefactos --pdf
+
+      - name: Modelo de costo y reconciliacion del prefijo
+        run: |
+          python scripts/modelo_costo_arq3.py
+          python scripts/sensibilidad_infra_y_equipo.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auditoria-ejemplo
+          path: artefactos/
+          retention-days: 14

@@ -1,0 +1,60 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: python -m fase0.pipeline fase0/fixtures/brief_ejemplo.json
+#              --dry-run fase0/fixtures/ads_archive_sample.json --salida /tmp/sal --pdf
+# Sin red: fixture de ads_archive + clasificador por reglas en vez del modelo.
+# Corrido por: BRAIN en su sandbox (Python 3.12.13, weasyprint 69.0, pypdf 6.14.2)
+# Fecha: 2026-09-06
+#
+========================================================================
+AUDITORIA GENERADA - Mi Tienda DTC
+========================================================================
+  anuncios traidos ................     23
+  nuevos (pagaron tokens) .........     22
+  ya vistos (dedup) ...............      0
+  duplicados dentro del lote ......      1
+  ratio de dedup ..................   4.3%
+  lotes al modelo .................      1
+  analisis validos ................     23
+  rechazos por validacion .........      0
+  llamadas a ads_archive ..........      2
+  reintentos por 613 ..............      0
+  prefijo sha256 .................. e3f52a1fbe89b0ce...
+  angulos sin explotar ............      5 ['educativo', 'garantia', 'comparacion', 'precio', 'prueba_social']
+  HTML ............................ /tmp/sal/auditoria-mi-tienda-dtc.html
+  PDF ............................. /tmp/sal/auditoria-mi-tienda-dtc.pdf
+EXIT=0
+
+# --- el PDF resultante, medido con pypdf ---
+paginas: 4
+bytes  : 23262
+caracteres de texto extraidos: 4474
+contiene "Digital Services Act": True
+contiene "malicioso.example"  : False (tiene que ser False)
+contiene "[enlace]"           : True
+
+# ---------------------------------------------------------------------------
+# COMO LEER ESTA SALIDA, Y QUE **NO** DEMUESTRA:
+#
+# 1. El ratio de dedup de 4,3% es el CORRECTO para una primera corrida: la base
+#    esta vacia, asi que lo unico que se dedupica es el duplicado intra-lote del
+#    fixture. El 88% del modelo de costo es el estado ESTACIONARIO, y esta
+#    verificado en test_segunda_corrida_no_paga_tokens: segunda corrida sobre el
+#    mismo corpus -> 0 anuncios nuevos, 0 lotes al modelo, ratio > 0,95.
+#
+# 2. "analisis validos: 23" con "nuevos: 22" no es un error de suma: el duplicado
+#    intra-lote no se manda al modelo pero SI recibe el analisis de su creatividad
+#    por reproyeccion hash -> ad_id. Ese +1 es exactamente el bug que el test de
+#    determinismo entre corridas encontro y que se arreglo.
+#
+# 3. "malicioso.example: False" es el control positivo de la Regla 6 de punta a
+#    punta: el fixture trae un anuncio con inyeccion de prompt y una URL, y el PDF
+#    que veria un cliente sale sin el dominio y sin nada ejecutable.
+#
+# 4. LO QUE ESTO NO DEMUESTRA: nada sobre la CALIDAD de la clasificacion. El
+#    clasificador del --dry-run son heuristicas de palabra clave, no un modelo.
+#    Ejemplo concreto de su tosquedad, visible arriba: marca "garantia" como
+#    angulo sin explotar cuando el prospecto SI tiene un anuncio de garantia, que
+#    la heuristica clasifico como "autoridad" por el string "10 anos de". Eso es un
+#    limite del fixture, no del pipeline, y por eso la evaluacion de calidad queda
+#    declarada como NO MEDIDA hasta correr el modelo real contra un set anotado.
+# ---------------------------------------------------------------------------
