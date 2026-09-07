@@ -16,20 +16,20 @@ fase0/schemas.py                            299     131      35      80      53
 fase0/store.py                              246     189       4      28      25
 fase0/tests/__init__.py                       1       0       0       1       0
 fase0/tests/apoyo.py                         89      59       2       5      23
-fase0/tests/test_adlibrary.py               179     131       0      14      34
+fase0/tests/test_adlibrary.py               186     131       0      20      35
 fase0/tests/test_cognitive.py               307     182       3      75      47
-fase0/tests/test_e2e_pipeline.py            234     142       1      45      46
+fase0/tests/test_e2e_pipeline.py            242     142       1      52      47
 fase0/tests/test_hallazgos_auditoria.py     260     140       0      71      49
 fase0/tests/test_report.py                  232     162       0      32      38
 fase0/tests/test_schemas_y_dedup.py         157      88       0      35      34
 scripts/inventario.py                       203     133       7      34      29
-scripts/manifiesto.py                       139      74      19      19      27
+scripts/manifiesto.py                       140      74      19      19      28
 scripts/modelo_costo_arq3.py                198     146      20      10      22
-scripts/sensibilidad_infra_y_equipo.py      167     125       9      11      22
+scripts/sensibilidad_infra_y_equipo.py      163     124       7      11      21
 -------------------------------------------------------------------------------
-TOTAL                                      4653    2947     230     753     723
+TOTAL                                      4665    2946     228     766     725
 
-ratio (comentario + docstring) / codigo = 0.334
+ratio (comentario + docstring) / codigo = 0.337
 
 GUARD VERDE: los 23 archivos parsean y en todos total = codigo + comentario + docstring + blanco.
 EXIT=0
