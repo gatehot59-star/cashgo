@@ -1,11 +1,9 @@
-# EVIDENCIA CRUDA - VERBATIM, SIN RECORTAR (W-01)
-# Instrumento: scripts/sensibilidad_infra_y_equipo.py
-# Corrido por: BRAIN, en su sandbox (Python 3.12), 2026-09-06
-# Comando: python3 scripts/sensibilidad_infra_y_equipo.py
-# Exit code: 0
-# Los tres numeros del contraste (6,6x de infra / 82,14% de margen con su stack /
-# 30 semanas-persona) se recomputan desde aca.
-
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: python3 scripts/sensibilidad_infra_y_equipo.py
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
+#
 ==============================================================================
 A) COSTO DE INFRA: MI STACK vs EL STACK DEL BLUEPRINT
 ==============================================================================
@@ -92,16 +90,3 @@ C) EL COSTO QUE EL BLUEPRINT NO PONE EN NINGUNA TABLA: SEMANAS-PERSONA
   el plan supone. Si el equipo es uno, el mismo plan es de 6.9 a 13.9 meses,
   y las Fases 3-4 quedan del otro lado de un ano.
   Esto NO refuta el blueprint: refuta leerlo como un cronograma.
-EXIT=0
-
-# ---------------------------------------------------------------------------
-# DEFECTO PROPIO CAZADO Y CORREGIDO EN LA MISMA CORRIDA (Bloque 8, patron 1):
-# La primera version del VEREDICTO C imprimia "el mismo plan es de 8 a 17 meses"
-# con los numeros HARDCODEADOS en el string, mientras las dos lineas de arriba
-# calculaban 6,9 y 13,9. O sea: un veredicto que contradecia a su propia
-# medicion, dos lineas mas abajo, en la misma salida. Lo cace releyendo el
-# stdout y no el codigo. Corregido: ahora el veredicto sale del calculo
-# (f-string sobre sp), asi que no puede volver a divergir.
-# Es exactamente el patron "el comentario denso como falsa verificacion":
-# habia escrito la conclusion antes de mirar el numero.
-# ---------------------------------------------------------------------------
