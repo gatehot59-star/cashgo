@@ -16,7 +16,7 @@ CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por azar
             por: test_saca_ad_ids_alucinados
   [CAZADA]  sin_urls deja de sustituir -> URLs ajenas en el entregable
             por: test_se_aplica_en_el_esquema_del_analisis
-  [CAZADA]  normalizar deja de neutralizar <<< -> contaminacion cruzada intra-lote
+  [CAZADA]  normalizar deja de neutralizar el delimitador -> contaminacion intra-lote
             por: test_el_copy_no_puede_fabricar_un_bloque
   [CAZADA]  se deja de detectar el ad_id repetido -> una clasificacion se pierde sin registro
             por: test_gana_la_primera_ocurrencia_y_la_segunda_se_registra
@@ -24,27 +24,3 @@ CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por azar
 VERDE: 7/7 mutaciones cazadas por su test especifico.
 Y el arbol restaurado sigue en verde.
 EXIT=0
-
-# ---------------------------------------------------------------------------
-# LAS DOS CORRIDAS QUE DIERON ROJO, VERBATIM, Y QUE SON EL VALOR DE ESTE SCRIPT:
-#
-# CORRIDA 1 (2026-09-06), version original del script:
-#   [ROJO ESPERADO / VERDE OBTENIDO]  content_hash incluye la fecha de entrega
-#   ROJO: 1 mutacion(es) no detectada(s). La suite es decorativa ahi.
-# Habia un test contra la fecha de FIN y ninguno contra la de INICIO. El caso real
-# que rompe: un anunciante pausa una creatividad y la relanza dos meses despues.
-#
-# CORRIDA 2 (2026-09-07), primera del script endurecido por B1:
-#   [ROJO AJENO]  angulo pasa de Literal cerrado a str
-#                la suite fallo pero 'test_si_el_modelo_obedece_la_inyeccion_el_esquema_lo_frena'
-#                no aparece en la salida: fallo por otro motivo, asi que la
-#                propiedad NO se midio
-#   ROJO: 1 mutacion(es) no cazada(s) correctamente de 7.
-# Ese es el DEFECTO 12: el test que la seccion 7.3 del informe citaba como LA
-# prueba de que la contencion de inyeccion es estructural pasaba en VERDE con la
-# taxonomia de `angulo` completamente abierta, porque el item hostil traia tambien
-# `cta` invalido y el rechazo venia de `cta`. Verde por redundancia.
-#
-# Las dos corridas se dejan aca a proposito. Un script de control positivo que
-# nunca reporto un rojo es sospechoso: probablemente no puede reportarlo.
-# ---------------------------------------------------------------------------

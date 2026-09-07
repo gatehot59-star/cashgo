@@ -30,8 +30,9 @@ usa un fixture de `ads_archive` y un clasificador por reglas en lugar del modelo
 Suite completa:
 
 ```bash
-python -m unittest discover -s fase0/tests -t . -v   # 100 tests
-bash scripts/control_positivo_suite.sh               # la suite puede dar rojo
+python -m unittest discover -s fase0/tests -t . -v   # 128 tests
+bash scripts/control_positivo_suite.sh               # 7/7 mutaciones cazadas
+python3 scripts/manifiesto.py --verificar            # integridad de la evidencia
 ```
 
 ## Correr contra las APIs reales
@@ -97,6 +98,13 @@ Lo segundo: para anuncios comerciales Meta **no publica** spend, impresiones, CT
 ni conversiones. La unica senal de exito es **cuanto tiempo lleva activo** el
 anuncio. El informe lo dice en su propia pagina de metodologia, con esas palabras.
 
+**Y una limitacion propia declarada (10.10 del informe):** ningun campo de
+`config.CAMPOS_ADS_ARCHIVE` informa el FORMATO del anuncio, y el prompt prohibe
+adivinarlo. En produccion `formato` sera "desconocido" casi siempre y la seccion 4
+del entregable ("Formatos que el mercado sostiene") sera inerte. En el `--dry-run`
+no se nota porque el clasificador de fixture lo deriva de las plataformas, que es
+justo lo que el prompt prohibe.
+
 ## Arquitectura
 
 ```
@@ -124,10 +132,11 @@ PDF (WeasyPrint)                      report.py      <- escapado obligatorio
    limit de `ads_archive` es el recurso escaso. Una corrida que muere en el paso
    del modelo no debe re-consumir el paso de la API.
 
-2. **`content_hash` es del CONTENIDO, no del registro.** No incluye fechas ni
-   `ad_id`. Un anuncio que sigue corriendo aparece en cada corrida con otra fecha
-   de fin: si el hash la incluyera, el ahorro seria cero. Y una creatividad se
-   clasifica una vez y se atribuye a **todos** los `ad_id` que la comparten.
+2. **`content_hash` es del CONTENIDO, no del registro.** No incluye fechas, ni
+   `ad_id`, ni plataformas. Un anuncio que sigue corriendo aparece en cada corrida
+   con otra fecha de fin: si el hash la incluyera, el ahorro seria cero. Y una
+   creatividad se clasifica una vez y se atribuye a **todos** los `ad_id` que la
+   comparten.
 
 3. **El prefijo del prompt es byte-identico y va primero.** Cache hit a
    USD 0,007/Mtok contra USD 0,22 de miss: 31x. Su SHA-256 esta pinneado en
@@ -139,7 +148,8 @@ PDF (WeasyPrint)                      report.py      <- escapado obligatorio
 
 4. **La agregacion no usa LLM.** Contar y ordenar es trabajo de un backend. Y
    ademas hace el informe **determinista**: dos corridas con el mismo corpus dan
-   el mismo documento, que es lo que permite comparar agosto con septiembre.
+   el mismo HTML. (El PDF NO es byte-determinista: WeasyPrint le embebe un
+   timestamp. Ver el defecto 16 del informe.)
 
 ## Guardrails que ya estan puestos
 
@@ -147,13 +157,14 @@ PDF (WeasyPrint)                      report.py      <- escapado obligatorio
 |---|---|---|
 | 0 · el LLM no porta credenciales | `Analizador` recibe una `Completion`, no un token de Meta | `test_cognitive.py` |
 | 1 · output tipado o se descarta | Literal cerrados + `extra="forbid"` | `TestValidacionEstricta` |
-| 6 · el copy ajeno es dato hostil | delimitadores + taxonomia cerrada + `sin_urls` | `TestInyeccionEnElCopy` |
+| 6 · el copy ajeno es dato hostil | delimitadores neutralizados en la ingesta + taxonomia cerrada + `sin_urls` | `TestInyeccionEnElCopy`, `TestB3_ContaminacionCruzadaIntraLote` |
 | 9 · aislamiento del scraper | `Settings.validar()` aborta si research y write comparten `app_id` | `TestConfigGuards` |
 
 **La Regla 6 no la protege el prompt, la protege el esquema.** Si el modelo se
-deja inyectar por completo y devuelve `angulo: "ejecutar_transferencia"`, el
-resultado es un `ValidationError` y un rechazo registrado. Hay un test que
-simula exactamente eso.
+deja inyectar por completo y devuelve un valor fuera de la taxonomia, el resultado
+es un `ValidationError` y un rechazo registrado. Hay un test **por cada campo
+cerrado**, para que la contencion no dependa de que varios campos se cubran entre
+si (defecto 12 del informe).
 
 ## Lo que NO esta verificado (declarado)
 
@@ -164,5 +175,9 @@ simula exactamente eso.
 - **La calidad de clasificacion del modelo es NO MEDIDA.** El clasificador del
   `--dry-run` son heuristicas de palabra clave: sirve para validar el *pipeline*,
   nunca para evaluar la *calidad*. Eso necesita un set anotado a mano.
+- **La tasa real de acierto del cache es NO MEDIDA.** Desde la revision 2 tiene
+  instrumento (`Metricas.veredicto_cache()`, con guard a `UMBRAL_CACHE_HIT=0,80`),
+  pero medirla exige el proveedor real. El `--dry-run` reporta "NO MEDIDO" a
+  proposito, porque el clasificador de fixture no es un proveedor.
 - **`estimar_tokens` no es un tokenizador** (~4 chars por token). Sirve para el
   reporte, no para facturar.
