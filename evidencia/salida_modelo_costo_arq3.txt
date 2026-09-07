@@ -1,0 +1,73 @@
+# EVIDENCIA CRUDA - VERBATIM, SIN RECORTAR (W-01)
+# Instrumento: scripts/modelo_costo_arq3.py
+# Corrido por: BRAIN, en su sandbox (Python 3.12), 2026-09-06
+# Comando: python3 scripts/modelo_costo_arq3.py
+# Exit code: 0
+# El veredicto de la auditoria (margen 96,28% en peak) se recomputa desde aca.
+# Si alguien cambia un supuesto en Supuestos() y el guard da ROJO, el veredicto cae.
+
+==============================================================================
+MODELO DE COSTO - CASHGO ARQUITECTURA 3 (Inteligencia de Mercado)
+Precios DeepSeek verificados en vivo 2026-09-06 (esquema peak/off-peak
+vigente desde 2026-08-16). Se modela la tarifa mas caras a proposito.
+==============================================================================
+
+--- VENTANA: OFF-PEAK ---
+  marcas monitoreadas .................        1,000
+  anuncios vistos por corrida .........       60,000
+  anuncios NUEVOS (pagan tokens) ......        7,200
+  descartados por dedup (hash) ........       52,800
+  llamadas a Flash por corrida ........          180
+  tokens de prefijo por corrida .......    1,440,000
+  USD Flash / corrida .................       1.1976
+  USD Pro (40 informes) / corrida .....       2.0592
+  USD / corrida .......................       3.2568
+  USD modelo / mes ....................        14.10
+  USD infra / mes .....................        60.00
+  USD TOTAL / mes .....................        74.10
+  (contrafactual sin dedup ni cache) ..        62.64
+  factor de ahorro ....................         4.4x
+  costo por anuncio nuevo (USD) .......     0.000166
+  costo por suscriptor / mes ..........       2.4701
+  ingreso / mes (30 x USD 79) .........      2370.00
+  MARGEN BRUTO ........................      2295.90  (96.87%)
+  suscriptores para breakeven .........            1
+
+--- VENTANA: PEAK ---
+  marcas monitoreadas .................        1,000
+  anuncios vistos por corrida .........       60,000
+  anuncios NUEVOS (pagan tokens) ......        7,200
+  descartados por dedup (hash) ........       52,800
+  llamadas a Flash por corrida ........          180
+  tokens de prefijo por corrida .......    1,440,000
+  USD Flash / corrida .................       2.3952
+  USD Pro (40 informes) / corrida .....       4.1184
+  USD / corrida .......................       6.5136
+  USD modelo / mes ....................        28.20
+  USD infra / mes .....................        60.00
+  USD TOTAL / mes .....................        88.20
+  (contrafactual sin dedup ni cache) ..       125.29
+  factor de ahorro ....................         4.4x
+  costo por anuncio nuevo (USD) .......     0.000333
+  costo por suscriptor / mes ..........       2.9401
+  ingreso / mes (30 x USD 79) .........      2370.00
+  MARGEN BRUTO ........................      2281.80  (96.28%)
+  suscriptores para breakeven .........            2
+
+CSV escrito en: /home/user/cashgo/evidencia/modelo_costo_arq3.csv
+
+GUARD: el margen tiene que cerrar en la ventana PEAK, no solo en off-peak.
+GUARD VERDE: margen peak 96.28% >= 80%
+EXIT=0
+
+# ---------------------------------------------------------------------------
+# DEFECTO PROPIO CAZADO LEYENDO ESTA SALIDA (registro de errores, Bloque 8):
+# El contrafactual off-peak (USD 62,64) es MENOR que el total off-peak con
+# optimizaciones (USD 74,10), y eso a primera vista parece decir que optimizar
+# empeora las cosas. No: el contrafactual mide SOLO el costo del modelo
+# (62,64 contra 14,10 = 4,4x), y el total incluye los USD 60 de infra que el
+# contrafactual no toca. Si no se lee la etiqueta de cada fila, la conclusion
+# sale al revés. La columna esta bien; la comparacion ingenua entre ellas, no.
+# Y ese cruce es justo el hallazgo de la seccion 4: la infra es el 68-81% de la
+# factura, no el modelo.
+# ---------------------------------------------------------------------------
