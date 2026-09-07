@@ -181,10 +181,19 @@ def main() -> int:
     out = Path(__file__).resolve().parent.parent / "evidencia" / "modelo_costo_arq3.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(filas[0].keys()))
+        # lineterminator explicito: el default de csv.DictWriter es CRLF, y con
+        # `* text=auto eol=lf` en .gitattributes eso produce un archivo cuyo
+        # byte-a-byte en el arbol de trabajo NO es el que git guarda. El
+        # manifiesto firma bytes crudos, asi que un CRLF aca pone en rojo la
+        # custodia en cualquier clon fresco. Cazado por scripts/cerrar.sh.
+        w = csv.DictWriter(fh, fieldnames=list(filas[0].keys()),
+                           lineterminator="\n")
         w.writeheader()
         w.writerows(filas)
-    print(f"\nCSV escrito en: {out}")
+    # Ruta RELATIVA a la raiz del repo, no absoluta: un recibo que imprime
+    # /home/<quien-sea>/... no es reproducible en otro clon y ademas filtra el
+    # layout de la maquina del autor a un archivo de evidencia commiteado.
+    print(f"\nCSV escrito en: {out.relative_to(Path(__file__).resolve().parent.parent)}")
     print("\nGUARD: el margen tiene que cerrar en la ventana PEAK, no solo en off-peak.")
     peak = filas[1]
     if peak["margen_bruto_pct"] < 80:
