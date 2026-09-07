@@ -33,6 +33,11 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 DESTINO = RAIZ / "evidencia" / "MANIFEST.sha256"
 
+# Que se cubre: la evidencia cruda, el dossier y los instrumentos. El codigo de
+# fase0/ NO se cubre aca porque git ya lo versiona por contenido y el head SHA lo
+# identifica; lo que git NO ata es la correspondencia entre "el informe que te
+# mando" y "el informe que esta en el repo". Ese es el modo de falla de A1.
+
 # EXCLUSION DECLARADA, con su motivo. `salida_manifiesto.txt` es el recibo de
 # ESTE script: escribirlo cambia su hash, asi que si estuviera cubierto el
 # manifiesto nunca podria verificarse a si mismo. Es un problema de

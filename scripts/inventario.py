@@ -4,15 +4,16 @@ inventario.py - Conteo estructural del arbol de codigo, por categoria de linea.
 
 Clasifica CADA linea de cada modulo Python en exactamente una de cuatro
 categorias: blanco, comentario, docstring, codigo. La suma por archivo es
-identica al total de lineas del archivo.
+identica al total de lineas del archivo, y eso se verifica con un assert: un
+inventario cuya suma no cierra es un inventario que no sirve para auditar.
 
 DEFECTO PROPIO QUE ORIGINO ESTE SCRIPT (2026-09-06): la primera version de este
-conteo lo hice inline con `ast.get_docstring(...).count("\\n")+1`, que cuenta las
+conteo lo hice inline con `ast.get_docstring(...).count("\n")+1`, que cuenta las
 lineas del TEXTO del docstring y no las que ocupa en el archivo (ignora las
 comillas de apertura y cierre). Resultado: fase0/__init__.py reporto -1 lineas
 de codigo. Un negativo es imposible por construccion, asi que el instrumento
 estaba mal, no el archivo. Ahora se usan las posiciones reales del nodo
-(lineno/end_lineno).
+(lineno/end_lineno) y la identidad se verifica con assert.
 
 SEGUNDO DEFECTO PROPIO, ENCONTRADO PROBANDO EL GUARD (2026-09-06): la primera
 version tenia como unico guard "la suma cierra". Ese guard es INALCANZABLE: cada
@@ -36,7 +37,7 @@ import ast
 import io
 import sys
 import tokenize
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -67,7 +68,7 @@ def lineas_de_docstring(arbol: ast.AST) -> set[int]:
     Numeros de linea (1-indexados) ocupados por docstrings EN EL ARCHIVO.
 
     Usa lineno/end_lineno del nodo Constant, o sea las posiciones reales
-    incluyendo las comillas. Contar los "\\n" del texto del docstring subestima
+    incluyendo las comillas. Contar los "\n" del texto del docstring subestima
     por 1 o 2 lineas segun el estilo de cierre, que es el bug que este script
     documenta en su encabezado.
     """
@@ -91,7 +92,7 @@ def lineas_de_docstring(arbol: ast.AST) -> set[int]:
 
 
 def lineas_de_comentario(src: str) -> set[int]:
-    """Lineas que contienen un token COMMENT."""
+    """Lineas cuyo unico contenido es un comentario, o que lo tienen al final."""
     lineas: set[int] = set()
     try:
         for tok in tokenize.generate_tokens(io.StringIO(src).readline):

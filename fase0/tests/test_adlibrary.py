@@ -142,9 +142,10 @@ class TestRateLimit(unittest.TestCase):
         """
         CONTROL POSITIVO: el backoff no puede ser infinito.
 
-        Este test cazo un defecto real: `reintentos_613` se incrementaba tambien
-        para el 613 final que hace abandonar, asi que reportaba 6 reintentos
-        habiendo dormido 5 veces. Una metrica que no coincidia con su fenomeno.
+        Este test cazo un defecto real (el 3 del registro): `reintentos_613` se
+        incrementaba tambien para el 613 final que hace abandonar, asi que
+        reportaba 6 reintentos habiendo dormido 5 veces. Una metrica que no
+        coincide con su propio fenomeno.
         """
         t = transporte_que_falla(99, {"data": []})
         c = cliente(t, dormir=lambda _s: None)
