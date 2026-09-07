@@ -17,10 +17,10 @@
 #    que una mutacion que rompia el modulo se reportaba como detectada sin que
 #    ninguna propiedad se hubiera medido. Es el mismo defecto que el script fue
 #    escrito para denunciar: el guard daba el color esperado sin medir la
-#    propiedad. Medido: con un `import modulo_inexistente` en schemas.py la suite
-#    daba exit 1 con 5 ModuleNotFoundError y cero tests ejecutados.
+#    propiedad. Medido: con un import de un modulo inexistente en schemas.py la
+#    suite daba exit 1 con 5 ModuleNotFoundError y cero tests ejecutados.
 #
-#    Correccion, dos condiciones NUEVAS y necesarias para declarar [CAZADO]:
+#    Correccion, dos condiciones NUEVAS y necesarias para declarar [CAZADA]:
 #      a) el archivo mutado tiene que COMPILAR (py_compile). Una mutacion que no
 #         compila no prueba nada sobre la suite.
 #      b) el NOMBRE DEL TEST ESPERADO tiene que aparecer en la salida de unittest
@@ -32,9 +32,20 @@
 #
 # 4. DEFECTO 17 (2026-09-07): este script quedo divergiendo entre el arbol de
 #    trabajo y git, junto con otros cinco archivos, porque los edite DESPUES de
-#    pushearlos. Lo cazo el CI, no yo. Y el intento de reproducir el delta byte a
-#    byte a mano fallo seis veces, que es exactamente la razon por la que la
-#    convergencia no puede depender del cuidado del autor: depende del guard.
+#    pushearlos. Lo cazo el CI, no yo.
+#
+# 5. DEFECTO 18, y es la causa raiz del 17 en este archivo: el ancla de la
+#    mutacion 1 contenia una secuencia de escape Unicode, y eso hacia el archivo
+#    NO TRANSPORTABLE. Al viajar en un payload JSON la secuencia se convertia en
+#    el caracter real, el ancla dejaba de matchear en el runner y el CI daba
+#    [ERROR]. Siete intentos de reproducir el delta a mano antes de mirar el
+#    mecanismo. Regla que sale de esto: **un instrumento que se transporta no
+#    puede contener secuencias de escape en sus datos.**
+#
+# LIMITACION CONOCIDA Y DECLARADA: la restauracion del arbol depende de
+# `trap ... EXIT`. Una interrupcion dura del proceso (corte del sandbox, kill -9)
+# puede dejar un MUTANTE vivo en fase0/. Si la suite falla despues de una corrida
+# interrumpida, lo primero a chequear es si quedo un `# MUTANTE` en el arbol.
 #
 # Uso: bash scripts/control_positivo_suite.sh
 # Exit 0 = todas las mutaciones detectadas por el test correcto.
@@ -102,13 +113,17 @@ echo "CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por a
 echo "=============================================================================="
 
 # 1. La fecha en el content_hash mata el ahorro por deduplicacion.
+#
+# El ancla apunta al CIERRE del payload del hash y no a su apertura, porque la
+# linea de apertura contiene una secuencia de escape Unicode y eso hacia el
+# archivo no transportable (defecto 18). Esta es equivalente y no tiene backslashes.
 probar_mutacion "content_hash incluye la fecha de inicio -> se rompe el dedup" \
   "fase0/schemas.py" \
-  '        payload = "\u241f".join([
-            self.page_id,' \
-  '        payload = "\u241f".join([
-            self.page_id,
-            self.inicio.isoformat(),' \
+  '            *self.descripciones,
+        ])' \
+  '            *self.descripciones,
+            self.inicio.isoformat(),
+        ])' \
   "test_ignora_la_fecha_de_inicio"
 
 # 2. Abrir la taxonomia desarma la contencion de inyeccion de prompt.
@@ -140,7 +155,7 @@ probar_mutacion "sin_urls deja de sustituir -> URLs ajenas en el entregable" \
   "test_se_aplica_en_el_esquema_del_analisis"
 
 # 6. (B3) Dejar de neutralizar el delimitador reabre la contaminacion intra-lote.
-probar_mutacion "normalizar deja de neutralizar <<< -> contaminacion cruzada intra-lote" \
+probar_mutacion "normalizar deja de neutralizar el delimitador -> contaminacion intra-lote" \
   "fase0/schemas.py" \
   '    limpio = _SECUENCIA_DELIMITADOR.sub(lambda m: m.group(0)[0] * 2, limpio)' \
   '    pass  # MUTANTE' \
