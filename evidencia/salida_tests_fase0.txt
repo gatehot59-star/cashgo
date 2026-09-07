@@ -1,0 +1,76 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: python -m unittest discover -s fase0/tests -t . -v
+# Corrido por: BRAIN en su sandbox
+# Entorno: Python 3.12.13, pydantic 2.13.4, weasyprint 69.0, pypdf 6.14.2
+# Fecha: 2026-09-06
+#
+# La salida -v completa (100 lineas de nombres de test) la reproduce el CI en cada
+# push y queda en el log del workflow `fase0`. Aca va el resumen del corredor mas
+# el desglose por clase computado con el propio loader de unittest, que es el dato
+# que permite auditar QUE se cubrio y no solo cuantos pasaron.
+
+----------------------------------------------------------------------
+Ran 100 tests in 1.409s
+
+OK
+EXIT=0
+
+# --- desglose por clase (unittest.TestLoader().discover) ---
+total de tests descubiertos: 100
+
+    4  test_adlibrary.TestAlcanceComercial
+    3  test_adlibrary.TestBatchDePageIds
+    4  test_adlibrary.TestPaginacion
+    4  test_adlibrary.TestParseoYDescartes
+    5  test_adlibrary.TestRateLimit
+    3  test_cognitive.TestCobertura
+    2  test_cognitive.TestFormateoDeAnuncio
+    4  test_cognitive.TestInyeccionEnElCopy
+    4  test_cognitive.TestPrefijoEstable
+   10  test_cognitive.TestValidacionEstricta
+    4  test_e2e_pipeline.TestConfigGuards
+    1  test_e2e_pipeline.TestPdf
+   11  test_e2e_pipeline.TestPrimeraCorrida
+    2  test_e2e_pipeline.TestSegundaCorrida
+    9  test_report.TestAgregacion
+    4  test_report.TestContenidoDelHtml
+    2  test_report.TestDeterminismo
+    5  test_report.TestEscapado
+    6  test_schemas_y_dedup.TestContentHash
+    3  test_schemas_y_dedup.TestDiasActivo
+    2  test_schemas_y_dedup.TestNormalizacion
+    4  test_schemas_y_dedup.TestParticionar
+    4  test_schemas_y_dedup.TestSinUrls
+
+# ---------------------------------------------------------------------------
+# LOS TRES ROJOS REALES QUE ESTA SUITE PRODUJO MIENTRAS SE ESCRIBIA EL CODIGO.
+# Se dejan anotados porque un "100 tests OK" sin historia de fallas es
+# sospechoso: una suite que nunca dio rojo probablemente no puede darlo.
+#
+# ROJO 1 - defecto del CODIGO, en adlibrary.py
+#   AssertionError: 6 != 5
+#   `reintentos_613` contaba tambien el 613 final que hace abandonar, asi que
+#   reportaba 6 reintentos habiendo dormido 5 veces. La metrica no coincidia con
+#   su propio fenomeno. Corregido moviendo el incremento despues del chequeo.
+#
+# ROJO 2 - defecto del CODIGO, en pipeline.py, y el mas caro de la Fase 0
+#   AssertionError: {'pro[...]ia', 2)...} != {'pro[...]ia', 3)...}
+#   Los analisis se indexaban por ad_id, asi que el duplicado intra-lote quedaba
+#   sin analisis en la primera corrida y con analisis en la segunda. Dos informes
+#   distintos para el mismo corpus, en un producto cuyo unico valor recurrente es
+#   poder comparar una auditoria con la del mes anterior. Era INVISIBLE en una
+#   sola corrida: solo lo encuentra un test que corre el pipeline dos veces.
+#
+# ROJO 3 y 4 - defectos de los TESTS, no del codigo (falsos rojos)
+#   AssertionError: '{' unexpectedly found in ...
+#   AssertionError: 'onload=' unexpectedly found in ...
+#   AssertionError: 0 not greater than or equal to 2   (b"/Type /Page")
+#   Los tres median un substring en vez de la propiedad que importaba. Los tres
+#   quedaron corregidos CON su explicacion adentro del test, porque un test que
+#   falla por el motivo equivocado gasta la credibilidad de la proxima vez que
+#   falle.
+#
+# Y el hueco de COBERTURA que ningun rojo encontro, porque los tests no se
+# auditan a si mismos: lo encontro scripts/control_positivo_suite.sh. Ver
+# evidencia/salida_control_positivo.txt.
+# ---------------------------------------------------------------------------
