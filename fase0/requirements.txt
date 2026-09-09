@@ -1,0 +1,19 @@
+# Pines exactos. Nada de rangos: un rango es una entrega que compila hoy y no
+# manana.
+#
+# QUE ES DE PRODUCCION Y QUE NO, declarado porque cambia como se lee un CVE.
+# Hallazgo de la tercera pasada externa (Fable 5.1, 2026-09-09): `deps-pins`
+# estaba rojo por SEIS avisos de DoS de pypdf < 6.16.1, y el dato estaba
+# publicado en OSV mientras nosotros lo teniamos en NO MEDIDO. El pin sube.
+#
+# Pero la lectura del riesgo NO es la que sugiere el aviso, y esto se midio
+# sobre el arbol: **pypdf aparece en UN solo lugar de las 5.205 lineas**, el test
+# `TestPdf.test_genera_un_pdf_no_trivial`, y lo que parsea es el PDF que
+# WeasyPrint acaba de generar DOS LINEAS ARRIBA en el mismo test. Ningun PDF de
+# un tercero entra nunca: el corpus llega como JSON de `ads_archive`. Los seis
+# avisos son DoS por parseo de PDF hostil, asi que la exposicion de produccion es
+# CERO y la de CI es un PDF propio. Se sube igual, porque un porton bloqueante en
+# rojo no se negocia con un argumento.
+pydantic==2.13.4          # produccion: contratos de datos
+weasyprint==69.0          # produccion: ESCRIBE el PDF, no lee ninguno
+pypdf==6.16.1             # SOLO TEST: lee el PDF que nosotros mismos generamos

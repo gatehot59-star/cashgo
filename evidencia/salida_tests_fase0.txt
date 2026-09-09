@@ -1,0 +1,16 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: python3 -m unittest discover -s fase0/tests -t . -v
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
+#
+# 144 tests. Los 16 ultimos son de fase0/tests/test_frontera_de_ingesta.py y
+# fijan el vector H-01 (todo campo que se interpola en el prompt esta
+# neutralizado, no solo el copy) y H-03 (la narrativa pasa por sin_urls),
+# con su control positivo adentro: si el parche se revierte, el rojo dice
+# QUE campo. La lista completa se conserva verbatim para que un tercero pueda
+# ver que propiedades se midieron y, mas importante, cuales NO estan.
+#
+Ran 144 tests in 1.300s
+
+OK

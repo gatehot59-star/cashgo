@@ -1,0 +1,27 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: bash scripts/control_positivo_suite.sh
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
+#
+arbol limpio en los archivos mutables: verificado con git status.
+==============================================================================
+CONTROL POSITIVO: cada mutacion tiene que ser cazada POR SU TEST, no por azar
+==============================================================================
+  [CAZADA]  content_hash incluye la fecha de inicio -> se rompe el dedup
+            por: test_ignora_la_fecha_de_inicio
+  [CAZADA]  angulo pasa de Literal cerrado a str -> se cae el guard de inyeccion
+            por: test_cada_campo_cerrado_contiene_por_si_solo
+  [CAZADA]  el informe deja de escapar HTML -> XSS en el entregable
+            por: test_no_queda_ningun_script_en_todo_el_documento
+  [CAZADA]  se deja de filtrar ad_id alucinados -> el informe cita anuncios inexistentes
+            por: test_saca_ad_ids_alucinados
+  [CAZADA]  sin_urls deja de sustituir -> URLs ajenas en el entregable
+            por: test_se_aplica_en_el_esquema_del_analisis
+  [CAZADA]  normalizar deja de neutralizar el delimitador -> contaminacion intra-lote
+            por: test_el_copy_no_puede_fabricar_un_bloque
+  [CAZADA]  se deja de detectar el ad_id repetido -> una clasificacion se pierde sin registro
+            por: test_gana_la_primera_ocurrencia_y_la_segunda_se_registra
+------------------------------------------------------------------------------
+VERDE: 7/7 mutaciones cazadas por su test especifico.
+Y el arbol restaurado sigue en verde.

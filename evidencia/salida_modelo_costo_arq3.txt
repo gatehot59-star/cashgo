@@ -1,0 +1,58 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: python3 scripts/modelo_costo_arq3.py
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
+#
+==============================================================================
+MODELO DE COSTO - CASHGO ARQUITECTURA 3 (Inteligencia de Mercado)
+Precios DeepSeek verificados en vivo 2026-09-06 (esquema peak/off-peak
+vigente desde 2026-08-16). Se modela la tarifa mas caras a proposito.
+==============================================================================
+
+--- VENTANA: OFF-PEAK ---
+  marcas monitoreadas .................        1,000
+  anuncios vistos por corrida .........       60,000
+  anuncios NUEVOS (pagan tokens) ......        7,200
+  descartados por dedup (hash) ........       52,800
+  llamadas a Flash por corrida ........          180
+  tokens de prefijo por corrida .......    1,440,000
+  USD Flash / corrida .................       1.1976
+  USD Pro (40 informes) / corrida .....       2.0592
+  USD / corrida .......................       3.2568
+  USD modelo / mes ....................        14.10
+  USD infra / mes .....................        60.00
+  USD TOTAL / mes .....................        74.10
+  (contrafactual sin dedup ni cache) ..        62.64
+  factor de ahorro ....................         4.4x
+  costo por anuncio nuevo (USD) .......     0.000166
+  costo por suscriptor / mes ..........       2.4701
+  ingreso / mes (30 x USD 79) .........      2370.00
+  MARGEN BRUTO ........................      2295.90  (96.87%)
+  suscriptores para breakeven .........            1
+
+--- VENTANA: PEAK ---
+  marcas monitoreadas .................        1,000
+  anuncios vistos por corrida .........       60,000
+  anuncios NUEVOS (pagan tokens) ......        7,200
+  descartados por dedup (hash) ........       52,800
+  llamadas a Flash por corrida ........          180
+  tokens de prefijo por corrida .......    1,440,000
+  USD Flash / corrida .................       2.3952
+  USD Pro (40 informes) / corrida .....       4.1184
+  USD / corrida .......................       6.5136
+  USD modelo / mes ....................        28.20
+  USD infra / mes .....................        60.00
+  USD TOTAL / mes .....................        88.20
+  (contrafactual sin dedup ni cache) ..       125.29
+  factor de ahorro ....................         4.4x
+  costo por anuncio nuevo (USD) .......     0.000333
+  costo por suscriptor / mes ..........       2.9401
+  ingreso / mes (30 x USD 79) .........      2370.00
+  MARGEN BRUTO ........................      2281.80  (96.28%)
+  suscriptores para breakeven .........            2
+
+CSV escrito en: evidencia/modelo_costo_arq3.csv
+
+GUARD: el margen tiene que cerrar en la ventana PEAK, no solo en off-peak.
+GUARD VERDE: margen peak 96.28% >= 80%

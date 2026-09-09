@@ -1,0 +1,24 @@
+# EVIDENCIA CRUDA - VERBATIM (W-01)
+# Instrumento: python3 -m fase0.pipeline ... --dry-run ... --pdf
+# Corrido por: BRAIN en su sandbox (Python 3.12.13)
+# Dependencias: pydantic==2.13.4 weasyprint==69.0 pypdf==6.14.2 
+# Generado por: bash scripts/cerrar.sh --regenerar
+#
+========================================================================
+AUDITORIA GENERADA - Mi Tienda DTC
+========================================================================
+  anuncios traidos ................     23
+  nuevos (pagaron tokens) .........     22
+  ya vistos (dedup) ...............      0
+  duplicados dentro del lote ......      1
+  ratio de dedup ..................   4.3%
+  lotes al modelo .................      1
+  analisis validos ................     23
+  rechazos por validacion .........      0
+  llamadas a ads_archive ..........      2
+  reintentos por 613 ..............      0
+  prefijo sha256 .................. e3f52a1fbe89b0ce...
+  cache de contexto ............... NO MEDIDO (el proveedor no reporto tokens de cache)
+  angulos sin explotar ............      5 ['educativo', 'garantia', 'comparacion', 'precio', 'prueba_social']
+  HTML ............................ artefactos/auditoria-mi-tienda-dtc.html
+  PDF ............................. artefactos/auditoria-mi-tienda-dtc.pdf
